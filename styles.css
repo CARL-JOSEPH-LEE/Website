@@ -8,21 +8,28 @@
   --muted: rgba(255,255,255,.72);
   --muted2: rgba(255,255,255,.54);
 
-  --shadow: 0 28px 90px rgba(2,2,20,.9);
+  --shadow-soft: 0 10px 26px rgba(0,0,0,.55);
+  --shadow-strong: 0 18px 48px rgba(0,0,0,.75);
+  --shadow-subtle: 0 6px 16px rgba(0,0,0,.45);
+
   --r: 22px;
   --r2: 16px;
+
+  --energy: 0;
+  --kick: 0;
 }
 
-body[data-mood="sweet"]{ 
-  --bg0:#190312; --bg1:#3a1027;
-  --a1:#ff9ac9; --a2:#ff6fb1; --a3:#ffd3f0;
+/* 主题色：同时驱动背景和细节 */
+body[data-mood="sweet"]{
+  --bg0:#1b0614; --bg1:#3b1027;
+  --a1:#ffb3d7; --a2:#ff6fb1; --a3:#ffd3f0;
 }
-body[data-mood="cool"] { 
-  --bg0:#06041f; --bg1:#120738;
+body[data-mood="cool"]{
+  --bg0:#05051d; --bg1:#140a38;
   --a1:#c77dff; --a2:#7c5cff; --a3:#00e5ff;
 }
-body[data-mood="soft"] { 
-  --bg0:#02181b; --bg1:#022b36;
+body[data-mood="soft"]{
+  --bg0:#02181b; --bg1:#02313b;
   --a1:#9ff3ff; --a2:#61dafb; --a3:#b9ffea;
 }
 
@@ -31,71 +38,37 @@ html,body{ height:100%; }
 a{ color:inherit; text-decoration:none; }
 button{ font:inherit; }
 
+/* 静态“流彩”背景：多层渐变，无动画 */
 body{
   margin:0;
   color:var(--txt);
   font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",system-ui,Segoe UI,Roboto,Arial,sans-serif;
+
   background:
+    radial-gradient(1200px 900px at -10% -10%, color-mix(in oklab, var(--a1) 80%, transparent) 0%, transparent 62%),
+    radial-gradient(1200px 900px at 110% -10%, color-mix(in oklab, var(--a2) 82%, transparent) 0%, transparent 62%),
+    radial-gradient(1300px 900px at 50% 120%, color-mix(in oklab, var(--a3) 80%, transparent) 0%, transparent 60%),
+    conic-gradient(
+      from 220deg at 50% 35%,
+      color-mix(in oklab, var(--a1) 40%, transparent),
+      color-mix(in oklab, var(--a2) 26%, transparent),
+      color-mix(in oklab, var(--a3) 30%, transparent),
+      color-mix(in oklab, var(--a1) 32%, transparent)
+    ),
     linear-gradient(180deg, var(--bg0), var(--bg1));
+
+  background-attachment: fixed;
   overflow-x:hidden;
 }
 
+/* 彻底停用 FX Canvas（保留 DOM，不再渲染） */
 .fxCanvas{
-  position: fixed;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-  width: 100vw;
-  height: 100vh;
-  opacity: 0.98;
-  filter: saturate(1.1);
+  display:none !important;
 }
 
-body::before{
-  content:"";
-  position:fixed;
-  inset:-30%;
-  pointer-events:none;
-  z-index:0;
-  background:
-    radial-gradient(circle at 18% 10%, color-mix(in oklab, var(--a1) 48%, transparent), transparent 58%),
-    radial-gradient(circle at 88% 6%,  color-mix(in oklab, var(--a2) 52%, transparent), transparent 62%),
-    radial-gradient(circle at 56% 92%, color-mix(in oklab, var(--a3) 46%, transparent), transparent 62%),
-    conic-gradient(from 180deg at 50% 50%,
-      color-mix(in oklab, var(--a1) 18%, transparent),
-      transparent 35%,
-      color-mix(in oklab, var(--a2) 20%, transparent),
-      transparent 65%,
-      color-mix(in oklab, var(--a3) 16%, transparent));
-  mix-blend-mode:screen;
-  opacity:.95;
-  filter: saturate(1.35);
-  animation:bgFlow 12s ease-in-out infinite alternate;
-}
+/* 不再使用 body::before / ::after 动画背景，直接删除 */
 
-body::after{
-  content:"";
-  position:fixed;
-  inset:0;
-  pointer-events:none;
-  z-index:1;
-  opacity:.18;
-  mix-blend-mode:soft-light;
-  background:
-    repeating-linear-gradient(90deg, rgba(255,255,255,.06) 0 1px, transparent 1px 82px),
-    repeating-linear-gradient(0deg,  rgba(255,255,255,.05) 0 1px, transparent 1px 82px),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
-  background-size: 82px 82px, 82px 82px, 140px 140px;
-  animation:gridDrift 22s linear infinite;
-}
-
-@keyframes bgFlow{
-  0%{ transform: translate3d(0,0,0) scale(1.02); filter:saturate(1.35) hue-rotate(0deg); }
-  50%{ transform: translate3d(2%,-3%,0) scale(1.07); filter:saturate(1.4) hue-rotate(10deg); }
-  100%{ transform: translate3d(-2%,2%,0) scale(1.12); filter:saturate(1.35) hue-rotate(-8deg); }
-}
-@keyframes gridDrift{ from{ transform:translate3d(0,0,0);} to{ transform:translate3d(-82px,-82px,0);} }
-
+/* 布局 */
 .wrap{
   position:relative;
   z-index:2;
@@ -110,56 +83,52 @@ body::after{
   gap:18px;
   margin-top:16px;
 }
-
-@media (max-width: 860px){ 
-  .grid{ 
-    grid-template-columns:1fr; 
-  } 
+@media (max-width: 860px){
+  .grid{ grid-template-columns:1fr; }
 }
 
-.side{ 
-  display:grid; 
-  gap:16px;
-}
+.side{ display:grid; gap:16px; }
 
+/* 顶部条 */
 .topbar{ padding: 10px 0 14px; z-index:5; }
 .topbarInner{
   display:flex; align-items:center; justify-content:space-between; gap:12px;
   padding:10px 12px;
   border-radius:999px;
-  border:1px solid rgba(255,255,255,.18);
-  background: radial-gradient(circle at 0 0, rgba(255,255,255,.28), rgba(255,255,255,.07));
-  box-shadow: 0 14px 60px rgba(0,0,0,.5);
+  border:1px solid rgba(255,255,255,.22);
+  background:
+    linear-gradient(135deg, rgba(8,8,28,.9), rgba(12,12,32,.9)),
+    radial-gradient(circle at 0 0, rgba(255,255,255,.15), transparent 60%);
+  box-shadow: var(--shadow-soft);
   position:relative; overflow:hidden;
 }
 
 .brand{ display:flex; align-items:center; gap:10px; min-width:0; }
 .avatarWrap{ position:relative; width:40px; height:40px; flex:0 0 auto; }
 .avatarRing{
-  position:absolute; inset:-4px; border-radius:999px;
+  position:absolute; inset:-3px; border-radius:999px;
   background: conic-gradient(from 200deg,
     color-mix(in oklab, var(--a1) 70%, transparent),
     color-mix(in oklab, var(--a2) 70%, transparent),
     color-mix(in oklab, var(--a3) 70%, transparent),
     color-mix(in oklab, var(--a1) 70%, transparent));
   opacity:.9;
-  animation: spin 10s linear infinite;
 }
-@keyframes spin{ to{ transform:rotate(360deg);} }
 .avatar{
   width:40px; height:40px; border-radius:999px;
   border:1px solid rgba(255,255,255,.32);
   background: radial-gradient(circle at 20% 0%, rgba(255,255,255,.85), rgba(255,255,255,.05));
   background-size:cover; background-position:center;
-  box-shadow: 0 14px 36px rgba(0,0,0,.6);
+  box-shadow: var(--shadow-subtle);
 }
 .brandTitle{ display:flex; flex-direction:column; line-height:1.05; min-width:0; }
 .brandTitle strong{ font-weight:900; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .brandTitle span{ color:var(--muted2); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
+/* mood 切换 pill，有轻微阴影 */
 .mood{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
 .pill{
-  border:1px solid rgba(255,255,255,.18);
+  border:1px solid rgba(255,255,255,.2);
   background: rgba(13,13,40,.7);
   color: var(--muted);
   padding:7px 11px;
@@ -167,17 +136,23 @@ body::after{
   font-size:12px;
   line-height:1;
   cursor:pointer;
-  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease, color .18s ease;
+  box-shadow: var(--shadow-subtle);
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease, color .18s ease, background .18s ease;
 }
-.pill:hover{ transform: translateY(-1px); border-color: rgba(255,255,255,.32); box-shadow:0 10px 24px rgba(0,0,0,.45); }
+.pill:hover{
+  transform: translateY(-1px);
+  border-color: rgba(255,255,255,.36);
+  box-shadow: var(--shadow-soft);
+}
 .pill[aria-pressed="true"]{
   color: rgba(255,255,255,.98);
-  border-color: rgba(255,255,255,.85);
+  border-color: rgba(255,255,255,.9);
   background: linear-gradient(120deg,
     color-mix(in oklab, var(--a1) 40%, rgba(18,18,40,.9)),
     color-mix(in oklab, var(--a2) 36%, rgba(18,18,40,.95)));
 }
 
+/* 卡片 + 阴影 */
 .card{
   border-radius: var(--r);
   padding:1px;
@@ -185,44 +160,45 @@ body::after{
     color-mix(in oklab, var(--a1) 26%, rgba(255,255,255,.02)),
     color-mix(in oklab, var(--a2) 20%, rgba(255,255,255,.02)),
     color-mix(in oklab, var(--a3) 18%, rgba(255,255,255,.02)));
-  box-shadow: var(--shadow);
+  box-shadow: var(--shadow-strong);
   position:relative;
   overflow:hidden;
 }
 .card::before{
   content:"";
   position:absolute; inset:-40%;
-  background: conic-gradient(from 220deg, rgba(255,255,255,.28), transparent, rgba(255,255,255,.1), transparent, rgba(255,255,255,.22));
-  opacity:.18;
+  background: radial-gradient(circle at 0 0, rgba(255,255,255,.28), transparent 65%);
+  opacity:.16;
   mix-blend-mode:screen;
-  animation: spin 18s linear infinite;
   pointer-events:none;
 }
 .inner{
   position:relative;
   border-radius: calc(var(--r) - 2px);
   border:1px solid rgba(255,255,255,.18);
-  background: radial-gradient(circle at 0 0, rgba(255,255,255,.10), rgba(8,8,22,.9));
+  background: radial-gradient(circle at 0 0, rgba(255,255,255,.10), rgba(8,8,22,.92));
   padding:18px;
 }
 .card:hover{ transform: translateY(-1px); }
 
+/* 文案 */
 .eyebrow{ display:flex; align-items:center; gap:10px; color:var(--muted); font-size:13px; }
 .spark{
   width:10px; height:10px; border-radius:999px;
   background: radial-gradient(circle, rgba(255,255,255,.95), rgba(255,255,255,0));
-  box-shadow: 0 0 22px rgba(255,255,255,.7);
 }
 .h1{
   font-size: clamp(27px, 3.8vw, 44px);
   line-height:1.08;
   margin: 10px 0 10px;
-  background: linear-gradient(120deg,#fff, color-mix(in oklab, var(--a1) 40%, #fff), color-mix(in oklab, var(--a2) 36%, #fff));
+  background: linear-gradient(120deg,#fff,
+    color-mix(in oklab, var(--a1) 40%, #fff),
+    color-mix(in oklab, var(--a2) 36%, #fff));
   -webkit-background-clip:text; background-clip:text; color:transparent;
-  text-shadow: 0 0 28px rgba(0,0,0,.7);
 }
 .sub{ color:var(--muted); font-size:14px; line-height:1.6; margin:0 0 14px; }
 
+/* chips */
 .chips{ display:flex; flex-wrap:wrap; gap:10px; margin-top:10px; }
 .chip{
   position:relative;
@@ -233,11 +209,11 @@ body::after{
   color: rgba(255,255,255,.92);
   border:1px solid transparent;
   background:
-    linear-gradient(rgba(10,10,40,.82), rgba(10,10,40,.72)) padding-box,
+    linear-gradient(rgba(10,10,40,.9), rgba(10,10,40,.78)) padding-box,
     linear-gradient(120deg, var(--a1), var(--a2), var(--a3)) border-box;
-  box-shadow: 0 10px 26px rgba(0,0,0,.45);
   overflow:hidden;
   transform: translateZ(0);
+  box-shadow: var(--shadow-subtle);
   transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
 }
 .chip::before{
@@ -249,12 +225,14 @@ body::after{
 }
 .chip:hover{
   transform: translateY(-2px) rotate(-.6deg);
-  box-shadow: 0 16px 44px rgba(0,0,0,.6);
-  filter: drop-shadow(0 0 14px color-mix(in oklab, var(--a2) 40%, transparent));
+  box-shadow: var(--shadow-soft);
 }
 .chip:hover::before{ animation: sheen .7s ease forwards; }
+
+/* 小范围动画，不影响背景性能 */
 @keyframes sheen{ to{ transform: translateX(120%); } }
 
+/* 按钮 */
 .ctaRow{ display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
 .btn{
   appearance:none;
@@ -265,7 +243,8 @@ body::after{
   font-weight:800;
   font-size:14px;
   color: rgba(255,255,255,.96);
-  background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.04));
+  background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.03));
+  box-shadow: var(--shadow-subtle);
   transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease, background .16s ease;
   display:inline-flex; align-items:center; justify-content:center; gap:8px;
   user-select:none;
@@ -273,19 +252,21 @@ body::after{
 .btn:hover{
   transform: translateY(-1px);
   border-color: rgba(255,255,255,.32);
-  box-shadow: 0 13px 30px rgba(0,0,0,.6);
+  box-shadow: var(--shadow-soft);
   background: radial-gradient(circle at 0 0, rgba(255,255,255,.18), rgba(255,255,255,.04));
 }
-.btn:active{ transform: translateY(0) scale(.98); box-shadow:none; }
+.btn:active{
+  transform: translateY(0) scale(.98);
+  box-shadow:none;
+}
 .btn.primary{
   border: 1px solid rgba(255,255,255,.26);
   background: linear-gradient(90deg,
     color-mix(in oklab, var(--a1) 40%, rgba(255,255,255,.12)),
     color-mix(in oklab, var(--a2) 36%, rgba(255,255,255,.1)),
     color-mix(in oklab, var(--a3) 30%, rgba(255,255,255,.08)));
-  box-shadow: 0 18px 50px rgba(0,0,0,.65);
 }
-.btn.ghost{ background: rgba(5,5,30,.7); }
+.btn.ghost{ background: rgba(5,5,30,.8); }
 
 .mini{
   margin-top:14px;
@@ -295,8 +276,9 @@ body::after{
   gap:12px;
   padding: 14px 16px;
   border-radius: calc(var(--r2) + 4px);
-  border:1px solid rgba(255,255,255,.16);
-  background: linear-gradient(180deg, rgba(8,8,26,.9), rgba(8,8,22,.9));
+  border:1px solid rgba(255,255,255,.18);
+  background: linear-gradient(180deg, rgba(8,8,26,.94), rgba(8,8,22,.94));
+  box-shadow: var(--shadow-soft);
 }
 .label{ font-size:12px; color:var(--muted2); margin-bottom:6px; }
 .big{ font-size:16px; font-weight:900; letter-spacing:.2px; }
@@ -308,11 +290,23 @@ body::after{
   .big,.idea{ white-space:normal; overflow:visible; text-overflow:clip; }
 }
 
+/* 副标题区域 */
 .headRow{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
 .h2{ font-weight:900; font-size:16px; }
 .h2sub{ color:var(--muted2); font-size:12px; margin-top:4px; }
-.tag{ color:var(--muted2); font-size:12px; padding:6px 10px; border:1px solid rgba(255,255,255,.14); border-radius:999px; background: rgba(7,7,25,.65); }
 
+/* tag 带阴影 */
+.tag{
+  color:var(--muted2);
+  font-size:12px;
+  padding:6px 10px;
+  border:1px solid rgba(255,255,255,.18);
+  border-radius:999px;
+  background: rgba(7,7,25,.9);
+  box-shadow: var(--shadow-subtle);
+}
+
+/* links */
 .linksGrid{
   margin-top:12px;
   display:grid;
@@ -320,8 +314,8 @@ body::after{
   gap:12px;
 }
 .linkCard{
-  border:1px solid rgba(255,255,255,.16);
-  background: radial-gradient(circle at 0 0, rgba(255,255,255,.12), rgba(7,7,25,.9));
+  border:1px solid rgba(255,255,255,.18);
+  background: radial-gradient(circle at 0 0, rgba(255,255,255,.14), rgba(7,7,25,.95));
   border-radius: 18px;
   padding: 13px;
   display:flex;
@@ -329,6 +323,7 @@ body::after{
   gap:10px;
   position:relative;
   overflow:hidden;
+  box-shadow: var(--shadow-subtle);
   transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
 }
 .linkCard::after{
@@ -342,7 +337,7 @@ body::after{
 .linkCard:hover{
   transform: translateY(-2px);
   border-color: rgba(255,255,255,.34);
-  box-shadow: 0 16px 40px rgba(0,0,0,.75);
+  box-shadow: var(--shadow-soft);
 }
 .linkCard:hover::after{ opacity:.85; }
 
@@ -355,6 +350,7 @@ body::after{
   display:flex; align-items:center; justify-content:center;
   flex:0 0 auto;
   overflow:hidden;
+  box-shadow: var(--shadow-subtle);
 }
 .ico span{
   font-size:12px;
@@ -362,57 +358,40 @@ body::after{
   letter-spacing:.6px;
   opacity:.92;
   color: rgba(255,255,255,.92);
-  text-shadow: 0 6px 18px rgba(0,0,0,.65);
 }
+
 .linkMeta{ min-width:0; }
 .linkMeta .t{ margin:0; font-weight:900; font-size:14px; line-height:1.2; }
 .linkMeta .d{ margin:4px 0 0; font-size:12px; color:var(--muted2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
 .footer{ margin-top:18px; text-align:center; color:var(--muted2); font-size:12px; opacity:.75; }
 
+/* dock（保留动态倾斜和能量，但背景是静态） */
 .dock{
   position:fixed;
   left:50%;
-  transform: translateX(-50%);
   bottom: calc(16px + var(--safeB));
   width: min(980px, 92vw);
   z-index:10;
   border-radius:999px;
-  border:1px solid rgba(255,255,255,.18);
-  background: radial-gradient(circle at 0 0, rgba(255,255,255,.22), rgba(9,9,25,.96));
-  box-shadow: 0 24px 90px rgba(0,0,0,.92);
+  border:1px solid rgba(255,255,255,.22);
+  background:
+    radial-gradient(circle at 0 0, rgba(255,255,255,.22), rgba(9,9,25,.98)),
+    linear-gradient(135deg, rgba(8,8,24,.98), rgba(6,6,20,.98));
   padding:10px;
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap:10px;
   overflow: hidden;
-}
 
-.dock::before{
-  content:"";
-  position:absolute;
-  inset:-60%;
-  background: conic-gradient(from 180deg,
-    color-mix(in oklab, var(--a1) 46%, transparent),
-    transparent 20%,
-    color-mix(in oklab, var(--a2) 42%, transparent),
-    transparent 55%,
-    color-mix(in oklab, var(--a3) 40%, transparent),
-    transparent 80%);
-  opacity:0;
-  mix-blend-mode: screen;
-  transform: scale(1.1);
-  pointer-events:none;
-}
-body.is-playing .dock::before{
-  opacity:.9;
-  animation: dockPulse 1.8s ease-in-out infinite;
-}
-@keyframes dockPulse{
-  0%{ transform: translate3d(-1%,-1%,0) scale(1.08) rotate(0deg); }
-  50%{ transform: translate3d(1%,1%,0) scale(1.14) rotate(10deg); }
-  100%{ transform: translate3d(-1%,-1%,0) scale(1.08) rotate(0deg); }
+  transform: translateX(-50%) perspective(900px)
+    rotateX(var(--tiltX, 0deg))
+    rotateY(var(--tiltY, 0deg))
+    scale(calc(1 + var(--kick) * .02));
+  box-shadow: var(--shadow-strong);
+  transition: transform .12s ease, border-color .18s ease, box-shadow .18s ease;
+  border-color: rgba(255,255,255,.26);
 }
 
 .dockLeft{ display:flex; align-items:center; gap:10px; min-width:0; }
@@ -434,6 +413,7 @@ body.is-playing .dock::before{
   max-width: 42vw;
 }
 
+/* EQ */
 .eq{
   width: 200px;
   height: 42px;
@@ -441,7 +421,6 @@ body.is-playing .dock::before{
   align-items:flex-end;
   gap:0.5px;
   opacity:.92;
-  filter: drop-shadow(0 12px 24px rgba(0,0,0,.7));
 
   --b0: 20%;  --b1: 35%;  --b2: 55%;  --b3: 30%;  --b4: 18%;
   --b5: 40%;  --b6: 25%;  --b7: 45%;  --b8: 30%;  --b9: 50%;
@@ -458,20 +437,20 @@ body.is-playing .dock::before{
   height: 20%;
   border-radius: 999px;
 
-  background: linear-gradient(180deg, 
-    rgba(255,255,255,.98), 
+  background: linear-gradient(180deg,
+    rgba(255,255,255,.98),
     color-mix(in oklab, var(--a1) 80%, rgba(255,255,255,.3)),
     color-mix(in oklab, var(--a2) 80%, rgba(255,255,255,.3)),
     color-mix(in oklab, var(--a3) 80%, rgba(255,255,255,.3)));
 
-  box-shadow: 0 0 24px color-mix(in oklab, var(--a2) 60%, transparent);
-
-  transition: height .02s linear, opacity .08s ease; /* 加快高度变化速度 */
+  box-shadow: 0 0 calc(4px + var(--energy) * 20px) rgba(255,255,255,.12);
+  transition: height .02s linear, opacity .08s ease;
   opacity: .65;
 }
 
-body.is-playing .eq i{ 
-  opacity: .98; 
+body.is-playing .eq i{
+  opacity: .98;
+  filter: saturate(1.25);
 }
 
 .eq i:nth-child(1){ height: var(--b0); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #ff9ac9 80%, rgba(255,255,255,.3))); }
@@ -507,32 +486,31 @@ body.is-playing .eq i{
 .eq i:nth-child(31){ height: var(--b30); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #9ff3ff 80%, rgba(255,255,255,.3))); }
 .eq i:nth-child(32){ height: var(--b31); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #61dafb 80%, rgba(255,255,255,.3))); }
 
+/* 进度条：静态渐变，没有流动动画 */
 .bar{
   width: min(380px, 52vw);
-  height: 7px;
-  background: rgba(255,255,255,.1);
+  background: rgba(255,255,255,.06);
   border-radius: 999px;
   overflow:hidden;
   border:1px solid rgba(255,255,255,.16);
+}
+.dock .bar{
+  height: 10px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.12);
 }
 .bar > i{
   display:block;
   height:100%;
   width:0%;
-  background: linear-gradient(90deg, var(--a1), var(--a2), var(--a3));
-  background-size: 220% 100%;
   border-radius:999px;
   transition: width .2s linear;
 }
-body.is-playing .bar > i{
-  animation: barFlow 1.2s linear infinite;
-  filter: drop-shadow(0 0 12px color-mix(in oklab, var(--a2) 45%, transparent));
-}
-@keyframes barFlow{
-  from{ background-position: 0% 0; }
-  to{ background-position: 220% 0; }
+#progress{
+  background: linear-gradient(90deg, var(--a1), var(--a2), var(--a3), var(--a1));
+  background-size: 260% 100%;
 }
 
+/* 播放控制按钮 */
 .dockBtns{ display:flex; gap:8px; align-items:center; position: relative; z-index: 1; }
 .iconBtn{
   width:44px; height:44px;
@@ -541,108 +519,20 @@ body.is-playing .bar > i{
   background: radial-gradient(circle at 0 0, rgba(255,255,255,.18), rgba(7,7,28,.96));
   cursor:pointer;
   display:flex; align-items:center; justify-content:center;
+  box-shadow: var(--shadow-subtle);
   transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
   position: relative;
   overflow: visible;
 }
-.iconBtn:hover{ transform: translateY(-1px); border-color: rgba(255,255,255,.36); box-shadow: 0 14px 40px rgba(0,0,0,.8); }
+.iconBtn:hover{
+  transform: translateY(-1px);
+  border-color: rgba(255,255,255,.36);
+  box-shadow: var(--shadow-soft);
+}
 .iconBtn:active{ transform: translateY(0) scale(.96); box-shadow:none; }
 .iconBtn svg{ width:20px; height:20px; fill: rgba(255,255,255,.9); }
 
-#musicToggle::after{
-  content:"";
-  position:absolute;
-  inset:-10px;
-  border-radius:999px;
-  border: 1px solid rgba(255,255,255,.12);
-  opacity:0;
-  transform: scale(.92);
-  pointer-events:none;
-}
-body.is-playing #musicToggle{
-  box-shadow: 0 18px 60px rgba(0,0,0,.9);
-}
-body.is-playing #musicToggle::after{
-  opacity:1;
-  animation: playRing 1.4s ease-out infinite;
-}
-@keyframes playRing{
-  0%{ transform: scale(.88); opacity:.65; }
-  70%{ transform: scale(1.22); opacity:.10; }
-  100%{ transform: scale(1.22); opacity:0; }
-}
-
-.toast{
-  position: fixed;
-  left:50%;
-  transform: translateX(-50%) translateY(-8px);
-  top: calc(14px + var(--safeT));
-  z-index:20;
-  padding: 9px 14px;
-  border-radius:999px;
-  border:1px solid rgba(255,255,255,.18);
-  background: rgba(6,6,18,.85);
-  color: rgba(255,255,255,.96);
-  font-size: 13px;
-  opacity:0;
-  pointer-events:none;
-  transition: opacity .2s ease, transform .2s ease;
-  box-shadow: 0 12px 36px rgba(0,0,0,.8);
-}
-.toast.show{ opacity:1; transform: translateX(-50%) translateY(0); }
-
-@media (prefers-reduced-motion: reduce){
-  *{ animation:none !important; transition:none !important; }
-  .fxCanvas{ display:none !important; }
-}
-
-:root{
-  --energy: 0;
-  --kick: 0;
-}
-
-body{
-  background:
-    radial-gradient(1200px 900px at 10% 0%, var(--a1) 0%, transparent 62%),
-    radial-gradient(1100px 800px at 90% 0%, var(--a2) 0%, transparent 62%),
-    radial-gradient(1300px 900px at 50% 90%, var(--a3) 0%, transparent 62%),
-    linear-gradient(180deg, var(--bg0), var(--bg1));
-}
-body::before{
-  background:
-    radial-gradient(circle at 18% 10%, var(--a1), transparent 58%),
-    radial-gradient(circle at 88% 6%,  var(--a2), transparent 62%),
-    radial-gradient(circle at 56% 92%, var(--a3), transparent 62%),
-    conic-gradient(from 180deg at 50% 50%,
-      var(--a1),
-      transparent 35%,
-      var(--a2),
-      transparent 65%,
-      var(--a3));
-  opacity: .78;
-}
-
-.dock{
-  position: fixed;
-  transform: translateX(-50%) perspective(900px)
-    rotateX(var(--tiltX, 0deg))
-    rotateY(var(--tiltY, 0deg))
-    scale(calc(1 + var(--kick) * .02));
-  transition: transform .12s ease, box-shadow .18s ease, border-color .18s ease;
-  border-color: rgba(255,255,255,.26);
-}
-
-@keyframes dockSweep{
-  0%{ transform: translateX(-55%); }
-  100%{ transform: translateX(55%); }
-}
-
-body.is-playing .dock{
-  box-shadow:
-    0 24px 90px rgba(0,0,0,.92),
-    0 0 calc(24px + var(--energy) * 70px) rgba(255,255,255,.10);
-}
-
+/* 主播放键：静态光泽 */
 #musicToggle{
   position: relative;
   width: 54px;
@@ -652,9 +542,7 @@ body.is-playing .dock{
     radial-gradient(circle at 30% 25%, rgba(255,255,255,.9), rgba(255,255,255,.18) 28%, rgba(0,0,0,0) 60%),
     radial-gradient(circle at 50% 60%, rgba(255,255,255,.22), rgba(0,0,0,0) 58%),
     linear-gradient(135deg, rgba(255,255,255,.16), rgba(0,0,0,0));
-  box-shadow:
-    0 18px 46px rgba(0,0,0,.65),
-    0 0 calc(16px + var(--energy) * 46px) rgba(255,255,255,.18);
+  box-shadow: var(--shadow-strong);
   transform: translateZ(0);
 }
 
@@ -671,11 +559,9 @@ body.is-playing .dock{
     rgba(255,255,255,0),
     var(--a3),
     rgba(255,255,255,0));
-  opacity: calc(.18 + var(--energy) * .75);
-  animation: ringSpin 1.25s linear infinite;
+  opacity: calc(.18 + var(--energy) * .4);
   pointer-events:none;
 }
-@keyframes ringSpin{ to{ transform: rotate(360deg); } }
 
 #musicToggle::after{
   content:"";
@@ -690,34 +576,75 @@ body.is-playing .dock{
   pointer-events:none;
 }
 
-.dock .bar{
-  height: 10px;
-  border-radius: 999px;
-  overflow:hidden;
-  background: rgba(255,255,255,.10);
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.12);
+/* toast */
+.toast{
+  position: fixed;
+  left:50%;
+  transform: translateX(-50%) translateY(-8px);
+  top: calc(14px + var(--safeT));
+  z-index:20;
+  padding: 9px 14px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.18);
+  background: rgba(6,6,18,.9);
+  color: rgba(255,255,255,.96);
+  font-size: 13px;
+  opacity:0;
+  pointer-events:none;
+  transition: opacity .2s ease, transform .2s ease;
+  box-shadow: var(--shadow-soft);
 }
-#progress{
-  height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--a1), var(--a2), var(--a3), var(--a1));
-  background-size: 260% 100%;
-  animation: progFlow 1.2s linear infinite;
-  box-shadow:
-    0 0 calc(10px + var(--energy) * 40px) rgba(255,255,255,.18);
-}
-@keyframes progFlow{
-  0%{ background-position: 0% 50%; }
-  100%{ background-position: 100% 50%; }
+.toast.show{ opacity:1; transform: translateX(-50%) translateY(0); }
+
+/* 轻量级从天而降爱心 --------------------------------- */
+.heartsLayer{
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;           /* 在背景之上、内容之下：你如果需要，可调成 0 或 2 */
+  overflow: hidden;
 }
 
-.eq{
-  filter: drop-shadow(0 10px 24px rgba(0,0,0,.55));
+/* 单个爱心：只有 transform + opacity 动画 */
+.heartDrop{
+  position: absolute;
+  top: -10vh;
+  font-size: 18px;
+  line-height: 1;
+  filter: none;          /* 明确避免多余 filter */
+  text-shadow: none;
+  will-change: transform, opacity;
+  animation-name: heartFall;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  color: color-mix(in oklab, var(--a1) 60%, var(--a2) 40%);
+  /* animation-duration / delay 由 JS 动态设置 */
 }
-.eq i{
-  box-shadow:
-    0 0 calc(10px + var(--energy) * 26px) rgba(255,255,255,.12);
+
+/* 下落 + 轻微漂移 */
+@keyframes heartFall{
+  0%{
+    transform: translate3d(0, -10vh, 0) scale(var(--scale, 1));
+    opacity: 0;
+  }
+  10%{
+    opacity: 1;
+  }
+  100%{
+    transform: translate3d(0, 110vh, 0) scale(var(--scale, 1));
+    opacity: 0;
+  }
 }
-body.is-playing .eq i{
-  filter: saturate(1.25);
+
+/* 如果系统要求减少动画，完全关掉爱心层 */
+@media (prefers-reduced-motion: reduce){
+  .heartsLayer{
+    display: none !important;
+  }
+}
+
+
+/* 降低动画模式：仍然保留基本布局，去掉微动画 */
+@media (prefers-reduced-motion: reduce){
+  *{ animation:none !important; transition:none !important; }
 }
