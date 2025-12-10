@@ -568,7 +568,7 @@
       audioCtx = new Ctx();
       analyser = audioCtx.createAnalyser();
       analyser.fftSize = 256;
-      analyser.smoothingTimeConstant = 0.82;
+      analyser.smoothingTimeConstant = 0.3;
       freq = new Uint8Array(analyser.frequencyBinCount);
 
       // createMediaElementSource only once per element
@@ -586,13 +586,6 @@
     const stopViz = () => {
       if (vizRAF) cancelAnimationFrame(vizRAF);
       vizRAF = null;
-      if (eqEl) {
-        eqEl.style.setProperty("--b0", "18%");
-        eqEl.style.setProperty("--b1", "26%");
-        eqEl.style.setProperty("--b2", "36%");
-        eqEl.style.setProperty("--b3", "22%");
-        eqEl.style.setProperty("--b4", "16%");
-      }
       document.documentElement.style.setProperty("--energy", "0");
       fx?.setBeatEnergy?.(0);
       setKick(0);
@@ -710,7 +703,7 @@
       bgMusic.load(); // ✅ 立刻触发加载，避免 duration 一直不可用
 
       if (trackName) trackName.textContent = `第 ${idx} 首`;
-      if (hint) hint.textContent = autoplay ? "音乐：加载中…" : "音乐：点 ▶ 开始（需要你手动点一下）";
+      if (hint) hint.textContent = autoplay ? "音乐：加载中…" : "音乐：点 ▶ 开始";
 
       if (!autoplay) {
         bgMusic.pause();
