@@ -1,32 +1,26 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
-  <!-- 页面基本元信息 -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="description" content="DJCARL 的小宇宙：心动、好看、好玩、好听。来认识我。" />
   <meta name="theme-color" content="#050412" />
-  
-  <!-- 页面标题和资源引用 -->
+
   <title>DJCARL｜李忠恕的小宇宙</title>
   <link rel="icon" href="star.jpg" type="image/jpeg" />
   <link rel="stylesheet" href="styles.css" />
   <script defer src="app.js"></script>
 </head>
 
-<!-- 页面主体，设置默认主题为sweet -->
+
 <body data-mood="sweet">
-  <!-- 提示消息容器 -->
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <!-- ✅ 新增：全屏特效层（爱心雨 + 拖动拖尾 + 节拍心动） -->
   <canvas id="fxCanvas" class="fxCanvas" aria-hidden="true"></canvas>
 
   <main class="wrap">
-    <!-- 顶部导航栏 -->
     <header class="topbar">
       <div class="topbarInner">
-        <!-- 品牌信息区域 -->
         <div class="brand" role="banner">
           <div class="avatarWrap" aria-hidden="true">
             <div class="avatarRing"></div>
@@ -38,7 +32,6 @@
           </div>
         </div>
 
-        <!-- 心情主题切换按钮 -->
         <div class="mood" aria-label="心情主题">
           <button class="pill" data-mood-btn="sweet" aria-pressed="true"  title="粉甜">甜 · Pink</button>
           <button class="pill" data-mood-btn="cool"  aria-pressed="false" title="紫夜">酷 · Purple</button>
@@ -48,16 +41,13 @@
     </header>
 
     <section class="grid" aria-label="主页内容">
-      <!-- HERO 主要内容卡片 -->
       <article class="card">
         <div class="inner">
-          <!-- 标题栏 -->
           <div class="eyebrow"><i class="spark" aria-hidden="true"></i><span>欢迎来到我的小宇宙</span></div>
 
-          <h1 class="h1">认识我，不用读长文。</h1>
+          <h1 class="h1">认识我，不需要很久</h1>
           <p class="sub">我更喜欢把“介绍”变成一次轻松的互动：你点一下，我们就多靠近一层。</p>
 
-          <!-- 兴趣标签 -->
           <div class="chips" aria-label="兴趣标签">
             <span class="chip">街健 / 健身</span>
             <span class="chip">Trance / 钢琴</span>
@@ -70,13 +60,11 @@
             <span class="chip">会折腾任何好玩的东西</span>
           </div>
 
-          <!-- 操作按钮 -->
           <div class="ctaRow">
             <button class="btn primary" id="ideaBtn" type="button">✨ 给我一个“约会灵感”</button>
             <button class="btn ghost" id="copyLineBtn" type="button">💬 复制一句开场白</button>
           </div>
 
-          <!-- 约会灵感展示区 -->
           <div class="mini" id="ideaBox">
             <div class="left">
               <div class="label">今天我们可以一起去：</div>
@@ -87,9 +75,7 @@
         </div>
       </article>
 
-      <!-- 右侧边栏 -->
       <aside class="side">
-        <!-- 我的链接卡片 -->
         <article class="card">
           <div class="inner">
             <div class="headRow">
@@ -101,7 +87,6 @@
           </div>
         </article>
 
-        <!-- FUN MODULE 心动小游戏模块 -->
         <article class="card">
           <div class="inner">
             <div class="headRow">
@@ -133,18 +118,12 @@
     <footer class="footer">© 2024–2025 DJCARL. 祝你每天都有一点点心动。</footer>
   </main>
 
-  <!-- MUSIC DOCK 音乐播放控制栏 -->
   <div class="dock" id="musicDock" role="region" aria-label="音乐控制">
     <div class="dockLeft">
       <div class="track">
-        <!-- 音乐提示信息 -->
         <div class="now" id="musicHint">音乐：点 ▶ 开始</div>
-
         <div class="trackRow">
-          <!-- 当前曲目名称 -->
           <div class="name" id="trackName">第 1 首</div>
-
-          <!-- ✅ 新增：均衡器（真实频谱驱动） -->
           <div class="eq" id="eq" aria-hidden="true">
             <i></i><i></i><i></i><i></i><i></i>
             <i></i><i></i><i></i><i></i><i></i>
@@ -154,13 +133,10 @@
             <i></i><i></i>
           </div>
         </div>
-
-        <!-- 播放进度条 -->
         <div class="bar" aria-hidden="true"><i id="progress"></i></div>
       </div>
     </div>
 
-    <!-- 控制按钮 -->
     <div class="dockBtns">
       <button class="iconBtn" id="musicToggle" type="button" title="播放/暂停" aria-label="播放/暂停">
         <svg id="iconPlay" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
@@ -172,7 +148,6 @@
     </div>
   </div>
 
-  <!-- 背景音乐音频元素 -->
   <audio id="bgMusic" preload="none"></audio>
 </body>
 </html>

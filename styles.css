@@ -1,34 +1,29 @@
 :root{
-  /* 安全区变量：适配异形屏 */
-  --safeB: env(safe-area-inset-bottom, 0px); /* 底部安全区 */
-  --safeT: env(safe-area-inset-top, 0px);    /* 顶部安全区 */
+  --safeB: env(safe-area-inset-bottom, 0px);
+  --safeT: env(safe-area-inset-top, 0px);
 
-  /* 颜色变量 */
-  --card: rgba(255,255,255,.10);   /* 卡片背景色 */
-  --stroke: rgba(255,255,255,.18); /* 边框色 */
-  --txt: rgba(255,255,255,.96);    /* 主要文字色 */
-  --muted: rgba(255,255,255,.72);  /* 次要文字色 */
-  --muted2: rgba(255,255,255,.54); /* 弱文字色 */
-  
-  /* 阴影和圆角 */
-  --shadow: 0 28px 90px rgba(2,2,20,.9); /* 卡片阴影 */
-  --r: 22px;  /* 大圆角 */
-  --r2: 16px; /* 小圆角 */
+  --card: rgba(255,255,255,.10);
+  --stroke: rgba(255,255,255,.18);
+  --txt: rgba(255,255,255,.96);
+  --muted: rgba(255,255,255,.72);
+  --muted2: rgba(255,255,255,.54);
+
+  --shadow: 0 28px 90px rgba(2,2,20,.9);
+  --r: 22px;
+  --r2: 16px;
 }
 
-/* mood */
-/* 主题色配置 */
 body[data-mood="sweet"]{ 
-  --bg0:#190312; --bg1:#3a1027; /* 背景色渐变 */
-  --a1:#ff9ac9; --a2:#ff6fb1; --a3:#ffd3f0; /* 主题强调色 */
+  --bg0:#190312; --bg1:#3a1027;
+  --a1:#ff9ac9; --a2:#ff6fb1; --a3:#ffd3f0;
 }
 body[data-mood="cool"] { 
-  --bg0:#06041f; --bg1:#120738; /* 背景色渐变 */
-  --a1:#c77dff; --a2:#7c5cff; --a3:#00e5ff; /* 主题强调色 */
+  --bg0:#06041f; --bg1:#120738;
+  --a1:#c77dff; --a2:#7c5cff; --a3:#00e5ff;
 }
 body[data-mood="soft"] { 
-  --bg0:#02181b; --bg1:#022b36; /* 背景色渐变 */
-  --a1:#9ff3ff; --a2:#61dafb; --a3:#b9ffea; /* 主题强调色 */
+  --bg0:#02181b; --bg1:#022b36;
+  --a1:#9ff3ff; --a2:#61dafb; --a3:#b9ffea;
 }
 
 *{ box-sizing:border-box; }
@@ -41,14 +36,10 @@ body{
   color:var(--txt);
   font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",system-ui,Segoe UI,Roboto,Arial,sans-serif;
   background:
-    radial-gradient(1200px 900px at 10% 0%, color-mix(in oklab, var(--a1) 32%, transparent) 0%, transparent 60%),
-    radial-gradient(1100px 800px at 90% 0%, color-mix(in oklab, var(--a2) 36%, transparent) 0%, transparent 60%),
-    radial-gradient(1300px 900px at 50% 90%, color-mix(in oklab, var(--a3) 30%, transparent) 0%, transparent 60%),
     linear-gradient(180deg, var(--bg0), var(--bg1));
   overflow-x:hidden;
 }
 
-/* ✅ 全屏特效 Canvas（爱心雨 & 拖动特效） */
 .fxCanvas{
   position: fixed;
   inset: 0;
@@ -60,7 +51,6 @@ body{
   filter: saturate(1.1);
 }
 
-/* ✅ 更张扬的流光（保留你的效果） */
 body::before{
   content:"";
   position:fixed;
@@ -79,7 +69,7 @@ body::before{
       color-mix(in oklab, var(--a3) 16%, transparent));
   mix-blend-mode:screen;
   opacity:.95;
-  filter: blur(18px) saturate(1.35);
+  filter: saturate(1.35);
   animation:bgFlow 12s ease-in-out infinite alternate;
 }
 
@@ -100,45 +90,39 @@ body::after{
 }
 
 @keyframes bgFlow{
-  0%{ transform: translate3d(0,0,0) scale(1.02); filter: blur(18px) saturate(1.35) hue-rotate(0deg); }
-  50%{ transform: translate3d(2%,-3%,0) scale(1.07); filter: blur(18px) saturate(1.4) hue-rotate(10deg); }
-  100%{ transform: translate3d(-2%,2%,0) scale(1.12); filter: blur(18px) saturate(1.35) hue-rotate(-8deg); }
+  0%{ transform: translate3d(0,0,0) scale(1.02); filter:saturate(1.35) hue-rotate(0deg); }
+  50%{ transform: translate3d(2%,-3%,0) scale(1.07); filter:saturate(1.4) hue-rotate(10deg); }
+  100%{ transform: translate3d(-2%,2%,0) scale(1.12); filter:saturate(1.35) hue-rotate(-8deg); }
 }
 @keyframes gridDrift{ from{ transform:translate3d(0,0,0);} to{ transform:translate3d(-82px,-82px,0);} }
 
-/* layout */
-/* 页面布局容器 */
 .wrap{
   position:relative;
   z-index:2;
-  width:min(980px, 92vw); /* 最大宽度980px或视口宽度的92% */
-  margin:0 auto; /* 居中对齐 */
-  padding: calc(22px + var(--safeT)) 0 calc(120px + var(--safeB)); /* 上下内边距考虑安全区 */
+  width:min(980px, 92vw);
+  margin:0 auto;
+  padding: calc(22px + var(--safeT)) 0 calc(120px + var(--safeB));
 }
 
-/* 主网格布局 */
 .grid{
   display:grid;
-  grid-template-columns: 1.25fr .9fr; /* 左侧占1.25份，右侧占0.9份 */
-  gap:18px; /* 网格项间距 */
-  margin-top:16px; /* 顶部外边距 */
+  grid-template-columns: 1.25fr .9fr;
+  gap:18px;
+  margin-top:16px;
 }
 
-/* 响应式：小屏幕时变为单列布局 */
 @media (max-width: 860px){ 
   .grid{ 
     grid-template-columns:1fr; 
   } 
 }
 
-/* 侧边栏 */
 .side{ 
   display:grid; 
-  gap:16px; /* 子项间距 */
+  gap:16px;
 }
 
-/* topbar */
-.topbar{ padding: 10px 0 14px; z-index:5; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+.topbar{ padding: 10px 0 14px; z-index:5; }
 .topbarInner{
   display:flex; align-items:center; justify-content:space-between; gap:12px;
   padding:10px 12px;
@@ -148,17 +132,6 @@ body::after{
   box-shadow: 0 14px 60px rgba(0,0,0,.5);
   position:relative; overflow:hidden;
 }
-.topbarInner::before{
-  content:"";
-  position:absolute; inset:-1px;
-  background: linear-gradient(120deg, rgba(255,255,255,.75), rgba(255,255,255,0), rgba(255,255,255,.6), rgba(255,255,255,0));
-  mix-blend-mode:soft-light;
-  opacity:.26;
-  transform: translateX(-40%);
-  animation: shimmer 7.5s linear infinite;
-  pointer-events:none;
-}
-@keyframes shimmer{ 0%{transform:translateX(-40%)} 50%{transform:translateX(20%)} 100%{transform:translateX(60%)} }
 
 .brand{ display:flex; align-items:center; gap:10px; min-width:0; }
 .avatarWrap{ position:relative; width:40px; height:40px; flex:0 0 auto; }
@@ -169,7 +142,7 @@ body::after{
     color-mix(in oklab, var(--a2) 70%, transparent),
     color-mix(in oklab, var(--a3) 70%, transparent),
     color-mix(in oklab, var(--a1) 70%, transparent));
-  opacity:.9; filter: blur(4px);
+  opacity:.9;
   animation: spin 10s linear infinite;
 }
 @keyframes spin{ to{ transform:rotate(360deg);} }
@@ -205,7 +178,6 @@ body::after{
     color-mix(in oklab, var(--a2) 36%, rgba(18,18,40,.95)));
 }
 
-/* card */
 .card{
   border-radius: var(--r);
   padding:1px;
@@ -222,7 +194,6 @@ body::after{
   position:absolute; inset:-40%;
   background: conic-gradient(from 220deg, rgba(255,255,255,.28), transparent, rgba(255,255,255,.1), transparent, rgba(255,255,255,.22));
   opacity:.18;
-  filter: blur(12px);
   mix-blend-mode:screen;
   animation: spin 18s linear infinite;
   pointer-events:none;
@@ -233,12 +204,9 @@ body::after{
   border:1px solid rgba(255,255,255,.18);
   background: radial-gradient(circle at 0 0, rgba(255,255,255,.10), rgba(8,8,22,.9));
   padding:18px;
-  backdrop-filter: blur(26px);
-  -webkit-backdrop-filter: blur(26px);
 }
 .card:hover{ transform: translateY(-1px); }
 
-/* hero */
 .eyebrow{ display:flex; align-items:center; gap:10px; color:var(--muted); font-size:13px; }
 .spark{
   width:10px; height:10px; border-radius:999px;
@@ -255,7 +223,6 @@ body::after{
 }
 .sub{ color:var(--muted); font-size:14px; line-height:1.6; margin:0 0 14px; }
 
-/* chips */
 .chips{ display:flex; flex-wrap:wrap; gap:10px; margin-top:10px; }
 .chip{
   position:relative;
@@ -288,7 +255,6 @@ body::after{
 .chip:hover::before{ animation: sheen .7s ease forwards; }
 @keyframes sheen{ to{ transform: translateX(120%); } }
 
-/* buttons */
 .ctaRow{ display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
 .btn{
   appearance:none;
@@ -321,7 +287,6 @@ body::after{
 }
 .btn.ghost{ background: rgba(5,5,30,.7); }
 
-/* mini */
 .mini{
   margin-top:14px;
   display:flex;
@@ -343,7 +308,6 @@ body::after{
   .big,.idea{ white-space:normal; overflow:visible; text-overflow:clip; }
 }
 
-/* links */
 .headRow{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
 .h2{ font-weight:900; font-size:16px; }
 .h2sub{ color:var(--muted2); font-size:12px; margin-top:4px; }
@@ -404,10 +368,8 @@ body::after{
 .linkMeta .t{ margin:0; font-weight:900; font-size:14px; line-height:1.2; }
 .linkMeta .d{ margin:4px 0 0; font-size:12px; color:var(--muted2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
-/* footer */
 .footer{ margin-top:18px; text-align:center; color:var(--muted2); font-size:12px; opacity:.75; }
 
-/* dock */
 .dock{
   position:fixed;
   left:50%;
@@ -418,8 +380,6 @@ body::after{
   border-radius:999px;
   border:1px solid rgba(255,255,255,.18);
   background: radial-gradient(circle at 0 0, rgba(255,255,255,.22), rgba(9,9,25,.96));
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
   box-shadow: 0 24px 90px rgba(0,0,0,.92);
   padding:10px;
   display:flex;
@@ -429,7 +389,6 @@ body::after{
   overflow: hidden;
 }
 
-/* ✅ 播放中：更花哨的呼吸光/脉冲 */
 .dock::before{
   content:"";
   position:absolute;
@@ -442,7 +401,6 @@ body::after{
     color-mix(in oklab, var(--a3) 40%, transparent),
     transparent 80%);
   opacity:0;
-  filter: blur(22px);
   mix-blend-mode: screen;
   transform: scale(1.1);
   pointer-events:none;
@@ -476,17 +434,15 @@ body.is-playing .dock::before{
   max-width: 42vw;
 }
 
-/* ✅ 均衡器（JS 写 CSS 变量驱动） */
 .eq{
-  width: 200px; /* 增加宽度以适应更多柱子 */
-  height: 42px; /* 增加高度 */
+  width: 200px;
+  height: 42px;
   display:flex;
   align-items:flex-end;
-  gap:0.5px; /* 减小柱子间距 */
+  gap:0.5px;
   opacity:.92;
   filter: drop-shadow(0 12px 24px rgba(0,0,0,.7));
-  
-  /* 定义32个频谱柱的初始高度 */
+
   --b0: 20%;  --b1: 35%;  --b2: 55%;  --b3: 30%;  --b4: 18%;
   --b5: 40%;  --b6: 25%;  --b7: 45%;  --b8: 30%;  --b9: 50%;
   --b10: 20%; --b11: 35%; --b12: 25%; --b13: 45%; --b14: 30%;
@@ -498,31 +454,26 @@ body.is-playing .dock::before{
 
 .eq i{
   display:block;
-  width: 4px; /* 调整柱子宽度 */
-  height: 20%; /* 初始高度 */
-  border-radius: 999px; /* 圆角 */
-  
-  /* 渐变背景色 */
+  width: 4px;
+  height: 20%;
+  border-radius: 999px;
+
   background: linear-gradient(180deg, 
     rgba(255,255,255,.98), 
     color-mix(in oklab, var(--a1) 80%, rgba(255,255,255,.3)),
     color-mix(in oklab, var(--a2) 80%, rgba(255,255,255,.3)),
     color-mix(in oklab, var(--a3) 80%, rgba(255,255,255,.3)));
-  
-  /* 阴影效果 */
+
   box-shadow: 0 0 24px color-mix(in oklab, var(--a2) 60%, transparent);
-  
-  /* 动画过渡效果 */
-  transition: height .02s linear, filter .08s ease, opacity .08s ease; /* 加快高度变化速度 */
-  opacity: .65; /* 初始透明度 */
+
+  transition: height .02s linear, opacity .08s ease; /* 加快高度变化速度 */
+  opacity: .65;
 }
 
-/* 播放状态下的频谱柱透明度 */
 body.is-playing .eq i{ 
   opacity: .98; 
 }
 
-/* 为32个频谱柱分别定义高度和背景色 */
 .eq i:nth-child(1){ height: var(--b0); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #ff9ac9 80%, rgba(255,255,255,.3))); }
 .eq i:nth-child(2){ height: var(--b1); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #ff6fb1 80%, rgba(255,255,255,.3))); }
 .eq i:nth-child(3){ height: var(--b2); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #ffd3f0 80%, rgba(255,255,255,.3))); }
@@ -571,7 +522,6 @@ body.is-playing .eq i{
   background: linear-gradient(90deg, var(--a1), var(--a2), var(--a3));
   background-size: 220% 100%;
   border-radius:999px;
-  box-shadow: 0 0 18px rgba(255,255,255,.6);
   transition: width .2s linear;
 }
 body.is-playing .bar > i{
@@ -599,7 +549,6 @@ body.is-playing .bar > i{
 .iconBtn:active{ transform: translateY(0) scale(.96); box-shadow:none; }
 .iconBtn svg{ width:20px; height:20px; fill: rgba(255,255,255,.9); }
 
-/* ✅ 播放中：播放键更“会动” */
 #musicToggle::after{
   content:"";
   position:absolute;
@@ -623,7 +572,6 @@ body.is-playing #musicToggle::after{
   100%{ transform: scale(1.22); opacity:0; }
 }
 
-/* toast */
 .toast{
   position: fixed;
   left:50%;
@@ -634,8 +582,6 @@ body.is-playing #musicToggle::after{
   border-radius:999px;
   border:1px solid rgba(255,255,255,.18);
   background: rgba(6,6,18,.85);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
   color: rgba(255,255,255,.96);
   font-size: 13px;
   opacity:0;
@@ -650,15 +596,11 @@ body.is-playing #musicToggle::after{
   .fxCanvas{ display:none !important; }
 }
 
-/* =========================
-   超夸张播放器强化 + 流光兜底
-   ========================= */
 :root{
-  --energy: 0;     /* 0..1 由 JS 实时写入 */
-  --kick: 0;       /* 节拍瞬间 0/1 */
+  --energy: 0;
+  --kick: 0;
 }
 
-/* ✅ 如果浏览器不支持 color-mix：给 body / dock 流光一个永远可见的 fallback */
 body{
   background:
     radial-gradient(1200px 900px at 10% 0%, var(--a1) 0%, transparent 62%),
@@ -680,7 +622,6 @@ body::before{
   opacity: .78;
 }
 
-/* ✅ Dock：3D 倾斜 + 能量呼吸 + 霓虹边框 */
 .dock{
   position: fixed;
   transform: translateX(-50%) perspective(900px)
@@ -691,36 +632,6 @@ body::before{
   border-color: rgba(255,255,255,.26);
 }
 
-.dock::before{
-  /* fallback：不靠 color-mix，永远有光 */
-  background: conic-gradient(from 180deg,
-    var(--a1),
-    transparent 20%,
-    var(--a2),
-    transparent 55%,
-    var(--a3),
-    transparent 80%);
-  opacity: calc(.18 + var(--energy) * .75);
-  filter: blur(26px) saturate(1.3);
-}
-
-/* ✅ 额外一层“流光扫过” */
-.dock::after{
-  content:"";
-  position:absolute;
-  inset:-1px;
-  pointer-events:none;
-  background:
-    linear-gradient(120deg,
-      rgba(255,255,255,0) 0%,
-      rgba(255,255,255,.55) 35%,
-      rgba(255,255,255,0) 60%),
-    radial-gradient(circle at 30% 10%, rgba(255,255,255,.18), transparent 55%);
-  mix-blend-mode: soft-light;
-  opacity: calc(.08 + var(--energy) * .26);
-  transform: translateX(-55%);
-  animation: dockSweep 2.4s linear infinite;
-}
 @keyframes dockSweep{
   0%{ transform: translateX(-55%); }
   100%{ transform: translateX(55%); }
@@ -732,7 +643,6 @@ body.is-playing .dock{
     0 0 calc(24px + var(--energy) * 70px) rgba(255,255,255,.10);
 }
 
-/* ✅ 播放按钮：旋转光环 + 能量放大 */
 #musicToggle{
   position: relative;
   width: 54px;
@@ -761,7 +671,6 @@ body.is-playing .dock{
     rgba(255,255,255,0),
     var(--a3),
     rgba(255,255,255,0));
-  filter: blur(10px) saturate(1.4);
   opacity: calc(.18 + var(--energy) * .75);
   animation: ringSpin 1.25s linear infinite;
   pointer-events:none;
@@ -778,11 +687,9 @@ body.is-playing .dock{
     rgba(255,255,255,0) 60%);
   opacity: calc(var(--kick) * .85);
   transform: scale(calc(1 + var(--kick) * .25));
-  filter: blur(1px);
   pointer-events:none;
 }
 
-/* ✅ 进度条：更厚 + 霓虹流动 */
 .dock .bar{
   height: 10px;
   border-radius: 999px;
@@ -804,7 +711,6 @@ body.is-playing .dock{
   100%{ background-position: 100% 50%; }
 }
 
-/* ✅ EQ：更亮、更“电” */
 .eq{
   filter: drop-shadow(0 10px 24px rgba(0,0,0,.55));
 }
@@ -815,4 +721,3 @@ body.is-playing .dock{
 body.is-playing .eq i{
   filter: saturate(1.25);
 }
-
