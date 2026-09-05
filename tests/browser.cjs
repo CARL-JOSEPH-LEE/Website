@@ -10,6 +10,12 @@ function instrument() {
   window.__audioContexts = [];
   if (window.AudioContext) window.AudioContext = new Proxy(window.AudioContext, { construct(target, args) { const ctx = Reflect.construct(target, args); window.__audioContexts.push(ctx); return ctx; } });
   window.__analysisReads = 0;
+  window.__spectrumDraws = 0;
+  const clearCanvas = CanvasRenderingContext2D.prototype.clearRect;
+  CanvasRenderingContext2D.prototype.clearRect = function (...args) {
+    if (this.canvas.classList.contains('eqCanvas')) window.__spectrumDraws++;
+    return clearCanvas.apply(this, args);
+  };
   if (window.AnalyserNode) {
     const get = AnalyserNode.prototype.getByteFrequencyData;
     AnalyserNode.prototype.getByteFrequencyData = function (...args) { window.__analysisReads++; return get.apply(this, args); };
@@ -34,7 +40,7 @@ function instrument() {
   page.on('pageerror', e => errors.push(e.message));
   const audioRequests = [];
   page.on('request', r => { if (r.url().endsWith('.mp3')) audioRequests.push(r.url()); });
-  const buttonClick = async id => { await page.locator(id).click({ force: true }); await page.mouse.move(0, 0); };
+  const buttonClick = async id => { await page.locator(id).click({ force: true }); await page.mouse.move(0, 0); await page.waitForTimeout(40); };
   const playing = () => page.waitForFunction(() => { const a = document.querySelector('audio'); return !a.paused && a.currentTime > .1 && document.querySelector('#musicHint').textContent.includes('正在播放'); });
   try {
     await page.goto(`${origin}/index.html`, { waitUntil: 'networkidle' });
@@ -90,15 +96,28 @@ function instrument() {
       const before = await page.evaluate(() => window.__analysisReads);
       await page.waitForTimeout(1100);
       const updates = await page.evaluate(() => window.__analysisReads) - before;
-      assert(updates > 0 && updates <= 35, `visual updates: ${updates}`);
+      assert(updates >= 25 && updates <= 70, `visual updates in 1.1 seconds: ${updates}`);
+      console.log(`Spectrum cadence: ${updates} updates in 1.1 seconds`);
       assert.equal(await page.locator('html').getAttribute('style'), null);
       assert.notEqual(await page.locator('#progress').evaluate(el => el.style.transform), 'scaleX(0)');
-      await buttonClick('#musicToggle');
+      await page.evaluate(() => { document.querySelector('audio').currentTime = 30; });
+      await page.waitForFunction(() => document.querySelector('#eq').classList.contains('is-canvas'));
+      const initialImage = await page.locator('.eqCanvas').evaluate(el => el.toDataURL());
+      await page.waitForFunction(previous => document.querySelector('.eqCanvas').toDataURL() !== previous, initialImage);
+      const frozen = await page.evaluate(() => {
+        const frame = { bars: [...document.querySelectorAll('#eq i')].map(el => el.style.transform), image: document.querySelector('.eqCanvas').toDataURL() };
+        document.querySelector('#musicToggle').click();
+        return frame;
+      });
       await page.waitForFunction(() => window.__audioContexts[0].state === 'suspended');
       assert.equal(await page.evaluate(() => window.__activeFrames.size), 0);
       const pausedReads = await page.evaluate(() => window.__analysisReads);
       await page.waitForTimeout(300);
       assert.equal(await page.evaluate(() => window.__analysisReads), pausedReads);
+      assert.equal(await page.locator('#eq').getAttribute('data-state'), 'frozen');
+      assert.deepEqual(await page.locator('#eq i').evaluateAll(bars => bars.map(el => el.style.transform)), frozen.bars);
+      assert.equal(await page.locator('.eqCanvas').evaluate(el => el.toDataURL()), frozen.image);
+      assert.equal(await page.locator('#musicToggle').evaluate(el => getComputedStyle(el, '::before').animationPlayState), 'paused');
     });
     await check('Interrupted audio stops visual work and resumes with one click', async () => {
       await buttonClick('#musicToggle');
@@ -124,13 +143,14 @@ function instrument() {
         }
       }
     });
-    await check('Reduced motion keeps gentle spectrum feedback and stops hearts and tilt', async () => {
+    await check('Reduced motion preserves requested falling hearts and spectrum, without dock tilt', async () => {
       await buttonClick('#musicToggle');
       await playing();
       await page.emulateMedia({ reducedMotion: 'reduce' });
       await page.waitForTimeout(150);
       assert.equal(await page.evaluate(() => window.__activeFrames.size), 1);
-      assert.equal(await page.locator('.heartsLayer').evaluate(el => getComputedStyle(el).display), 'none');
+      assert.equal(await page.locator('.heartsLayer').evaluate(el => getComputedStyle(el).display), 'block');
+      assert.equal(await page.locator('.heartDrop').first().evaluate(el => getComputedStyle(el).animationName), 'heartFall');
       const rect = await page.locator('#musicDock').boundingBox();
       await page.mouse.move(rect.x + 20, rect.y + 10);
       await page.waitForTimeout(100);
@@ -139,8 +159,8 @@ function instrument() {
       const reducedReads = await page.evaluate(() => window.__analysisReads);
       await page.waitForTimeout(250);
       assert((await page.evaluate(() => window.__analysisReads)) > reducedReads);
-      assert.equal(await page.locator('#musicToggle').evaluate(el => el.style.getPropertyValue('--energy')), '0');
-      assert.equal(await page.locator('#musicToggle').evaluate(el => el.style.getPropertyValue('--kick')), '0');
+      assert(await page.locator('#musicToggle').evaluate(el => Number(el.style.getPropertyValue('--energy')) <= .65));
+      assert(await page.locator('#musicToggle').evaluate(el => Number(el.style.getPropertyValue('--kick')) <= .45));
       await page.emulateMedia({ reducedMotion: 'no-preference' });
       await page.mouse.move(0, 0);
       await page.waitForFunction(reads => window.__analysisReads > reads, reducedReads);
@@ -182,6 +202,9 @@ function instrument() {
       await page.waitForFunction(() => document.querySelector('#musicHint').textContent.includes('暂时无法播放'));
       assert.equal(await page.locator('#musicToggle').getAttribute('aria-pressed'), 'false');
       assert.equal(await page.evaluate(() => window.__activeFrames.size), 0);
+      assert.equal(await page.locator('#eq').getAttribute('data-state'), 'idle');
+      assert.equal(await page.locator('#eq').evaluate(el => el.classList.contains('is-canvas')), false);
+      assert(await page.locator('#eq i').evaluateAll(bars => bars.every(el => !el.style.transform)));
       await buttonClick('#nextTrack');
       await playing();
       assert.equal(await page.locator('#trackName').textContent(), '第 6 首');
@@ -269,6 +292,85 @@ function instrument() {
         assert.equal(await p.evaluate(() => document.documentElement.scrollWidth), width);
       }
       await mobile.close();
+    });
+    await check('Falling hearts remain animated with coarse input and reduced motion; cursor effects are removed', async () => {
+      const hybrid = await browser.newContext({ viewport: { width: 1000, height: 750 }, isMobile: true, hasTouch: true, reducedMotion: 'reduce' });
+      await hybrid.addInitScript(instrument);
+      const p = await hybrid.newPage();
+      await p.goto(`${origin}/index.html`);
+      assert.equal(await p.evaluate(() => matchMedia('(pointer: fine)').matches), false);
+      await p.mouse.move(320, 250);
+      await p.waitForFunction(() => document.querySelectorAll('.heartDrop').length > 0);
+      const first = await p.locator('.heartDrop').first().evaluate(el => getComputedStyle(el).transform);
+      await p.mouse.move(480, 310);
+      await p.waitForFunction(previous => getComputedStyle(document.querySelector('.heartDrop')).transform !== previous, first);
+      assert.equal(await p.locator('.heartsLayer').evaluate(el => getComputedStyle(el).pointerEvents), 'none');
+      await p.waitForTimeout(100);
+      assert.equal(await p.evaluate(() => window.__activeFrames.size), 0);
+      assert.equal(await p.locator('.cursorFx, .cursorGlow, .cursorSpark').count(), 0);
+      await p.emulateMedia({ reducedMotion: 'no-preference' });
+      const dock = await p.locator('#musicDock').boundingBox();
+      await p.mouse.move(dock.x + 40, dock.y + 25);
+      await p.waitForFunction(() => document.querySelector('#musicDock').style.transform.includes('rotateX'));
+      await p.evaluate(() => window.dispatchEvent(new Event('blur')));
+      assert.equal(await p.locator('#musicDock').evaluate(el => el.style.transform), '');
+      await p.touchscreen.tap(300, 300);
+      assert.equal(await p.locator('.cursorFx, .cursorGlow, .cursorSpark').count(), 0);
+      await hybrid.close();
+    });
+    await check('Updated dates and separate interests are present', async () => {
+      const labels = await page.locator('.chip').allTextContents();
+      assert(labels.includes('围棋 / 桌游'));
+      assert(labels.includes('日麻 / 德扑'));
+      assert(!labels.includes('围棋 / 麻将'));
+      assert((await page.locator('.footer').textContent()).includes('2024–2026'));
+    });
+    await check('Canvas fallback retains real spectrum and pause freeze', async () => {
+      const fallback = await browser.newContext({ reducedMotion: 'reduce' });
+      await fallback.addInitScript(() => { HTMLCanvasElement.prototype.getContext = () => null; });
+      const p = await fallback.newPage();
+      await p.goto(`${origin}/index.html`);
+      await p.locator('#musicToggle').click();
+      await p.waitForFunction(() => document.querySelector('#eq i').style.transform !== '');
+      assert.equal(await p.locator('#eq').evaluate(el => el.classList.contains('is-canvas')), false);
+      const frozen = await p.evaluate(() => {
+        const frame = [...document.querySelectorAll('#eq i')].map(el => el.style.transform);
+        document.querySelector('#musicToggle').click(); return frame;
+      });
+      await p.waitForTimeout(150);
+      assert.deepEqual(await p.locator('#eq i').evaluateAll(bars => bars.map(el => el.style.transform)), frozen);
+      await fallback.close();
+    });
+    await check('Throttled embedded RAF still animates; pause and hide stop its fallback clock', async () => {
+      const embedded = await browser.newContext({ reducedMotion: 'reduce' });
+      await embedded.addInitScript(() => {
+        const nativeTimer = window.setTimeout.bind(window);
+        const nativeClear = window.clearTimeout.bind(window);
+        window.requestAnimationFrame = callback => nativeTimer(() => callback(performance.now()), 1000);
+        window.cancelAnimationFrame = id => nativeClear(id);
+        window.__drawCount = 0;
+        const clear = CanvasRenderingContext2D.prototype.clearRect;
+        CanvasRenderingContext2D.prototype.clearRect = function (...args) { window.__drawCount++; return clear.apply(this, args); };
+      });
+      const p = await embedded.newPage();
+      await p.goto(`${origin}/index.html`);
+      await p.locator('#musicToggle').click();
+      await p.waitForFunction(() => window.__drawCount >= 3);
+      const before = await p.evaluate(() => window.__drawCount);
+      await p.waitForTimeout(700);
+      assert(await p.evaluate(n => window.__drawCount - n >= 12, before));
+      await p.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true })));
+      const hidden = await p.evaluate(() => window.__drawCount);
+      await p.waitForTimeout(180);
+      assert.equal(await p.evaluate(() => window.__drawCount), hidden);
+      await p.evaluate(() => window.dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true })));
+      await p.waitForFunction(n => window.__drawCount > n, hidden);
+      await p.locator('#musicToggle').click();
+      const paused = await p.evaluate(() => ({ count: window.__drawCount, image: document.querySelector('.eqCanvas').toDataURL() }));
+      await p.waitForTimeout(250);
+      assert.equal(await p.evaluate(() => window.__drawCount), paused.count);
+      assert.equal(await p.locator('.eqCanvas').evaluate(el => el.toDataURL()), paused.image);
+      await embedded.close();
     });
     await check('No unhandled script errors across the full interaction suite', async () => assert.deepEqual(errors, []));
     fs.mkdirSync(path.join(__dirname, '../test-results'), { recursive: true });

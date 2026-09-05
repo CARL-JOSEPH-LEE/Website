@@ -413,66 +413,75 @@ body{
 
 /* EQ */
 .eq{
+  position:relative;
   width: 200px;
   min-width:0;
   height: 42px;
   display:flex;
   align-items:flex-end;
-  gap:0.5px;
+  gap:2px;
   opacity:.92;
 
   contain: layout;
 }
 
+.eqCanvas{ display:none; position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+.eq.is-canvas > i{ visibility:hidden; }
+.eq.is-canvas .eqCanvas{ display:block; }
+
 .eq i{
   display:block;
   width: 4px;
+  flex:1 1 4px;
+  min-width:1px;
   height: 100%;
   transform-origin: center bottom;
-  transform: scaleY(var(--level, .2));
+  transform: scaleY(.055);
   border-radius: 999px;
 
   background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, var(--bar-color, var(--a1)) 80%, rgba(255,255,255,.3)));
 
   box-shadow: 0 0 4px rgba(255,255,255,.12);
-  transition: transform .06s linear, opacity .08s ease;
+  transition: opacity .15s ease;
   opacity: .65;
 }
 
 body.is-playing .eq i{
   opacity: .98;
-  filter: saturate(1.25);
-  box-shadow: 0 0 10px rgba(255,255,255,.12);
+  filter: saturate(1.4);
+  box-shadow: 0 0 9px color-mix(in oklab, var(--bar-color) 55%, transparent);
 }
 
-.eq i:nth-child(1){ --level:0.2; --bar-color:#ff9ac9; }
-.eq i:nth-child(2){ --level:0.35; --bar-color:#ff6fb1; }
-.eq i:nth-child(3){ --level:0.55; --bar-color:#ffd3f0; }
-.eq i:nth-child(4){ --level:0.3; --bar-color:#c77dff; }
-.eq i:nth-child(5){ --level:0.18; --bar-color:#7c5cff; }
-.eq i:nth-child(6){ --level:0.4; --bar-color:#00e5ff; }
-.eq i:nth-child(7){ --level:0.25; --bar-color:#9ff3ff; }
-.eq i:nth-child(8){ --level:0.45; --bar-color:#61dafb; }
-.eq i:nth-child(9){ --level:0.3; --bar-color:#b9ffea; }
-.eq i:nth-child(10){ --level:0.5; --bar-color:#ff9ac9; }
-.eq i:nth-child(11){ --level:0.2; --bar-color:#ff6fb1; }
-.eq i:nth-child(12){ --level:0.35; --bar-color:#ffd3f0; }
-.eq i:nth-child(13){ --level:0.25; --bar-color:#c77dff; }
-.eq i:nth-child(14){ --level:0.45; --bar-color:#7c5cff; }
-.eq i:nth-child(15){ --level:0.3; --bar-color:#00e5ff; }
-.eq i:nth-child(16){ --level:0.55; --bar-color:#9ff3ff; }
-.eq i:nth-child(17){ --level:0.2; --bar-color:#61dafb; }
-.eq i:nth-child(18){ --level:0.4; --bar-color:#b9ffea; }
-.eq i:nth-child(19){ --level:0.35; --bar-color:#ff9ac9; }
-.eq i:nth-child(20){ --level:0.5; --bar-color:#ff6fb1; }
-.eq i:nth-child(21){ --level:0.22; --bar-color:#ffd3f0; }
-.eq i:nth-child(22){ --level:0.38; --bar-color:#c77dff; }
-.eq i:nth-child(23){ --level:0.28; --bar-color:#7c5cff; }
-.eq i:nth-child(24){ --level:0.42; --bar-color:#00e5ff; }
-.eq i:nth-child(25){ --level:0.33; --bar-color:#ff9ac9; }
-.eq i:nth-child(26){ --level:0.27; --bar-color:#ff6fb1; }
-.eq i:nth-child(27){ --level:0.44; --bar-color:#ffd3f0; }
-.eq i:nth-child(28){ --level:0.39; --bar-color:#c77dff; }
+.eq[data-state="idle"] i{ transition:transform .32s cubic-bezier(.2,.65,.3,1), opacity .2s ease; }
+
+.eq i:nth-child(1){ --bar-color:#ff9ac9; }
+.eq i:nth-child(2){ --bar-color:#ff6fb1; }
+.eq i:nth-child(3){ --bar-color:#ffd3f0; }
+.eq i:nth-child(4){ --bar-color:#c77dff; }
+.eq i:nth-child(5){ --bar-color:#7c5cff; }
+.eq i:nth-child(6){ --bar-color:#00e5ff; }
+.eq i:nth-child(7){ --bar-color:#9ff3ff; }
+.eq i:nth-child(8){ --bar-color:#61dafb; }
+.eq i:nth-child(9){ --bar-color:#b9ffea; }
+.eq i:nth-child(10){ --bar-color:#ff9ac9; }
+.eq i:nth-child(11){ --bar-color:#ff6fb1; }
+.eq i:nth-child(12){ --bar-color:#ffd3f0; }
+.eq i:nth-child(13){ --bar-color:#c77dff; }
+.eq i:nth-child(14){ --bar-color:#7c5cff; }
+.eq i:nth-child(15){ --bar-color:#00e5ff; }
+.eq i:nth-child(16){ --bar-color:#9ff3ff; }
+.eq i:nth-child(17){ --bar-color:#61dafb; }
+.eq i:nth-child(18){ --bar-color:#b9ffea; }
+.eq i:nth-child(19){ --bar-color:#ff9ac9; }
+.eq i:nth-child(20){ --bar-color:#ff6fb1; }
+.eq i:nth-child(21){ --bar-color:#ffd3f0; }
+.eq i:nth-child(22){ --bar-color:#c77dff; }
+.eq i:nth-child(23){ --bar-color:#7c5cff; }
+.eq i:nth-child(24){ --bar-color:#00e5ff; }
+.eq i:nth-child(25){ --bar-color:#ff9ac9; }
+.eq i:nth-child(26){ --bar-color:#ff6fb1; }
+.eq i:nth-child(27){ --bar-color:#ffd3f0; }
+.eq i:nth-child(28){ --bar-color:#c77dff; }
 
 /* 进度条：静态渐变，没有流动动画 */
 .bar{
@@ -551,22 +560,29 @@ body.is-playing .eq i{
     rgba(255,255,255,0),
     var(--a3),
     rgba(255,255,255,0));
-  opacity: calc(.18 + var(--energy) * .4);
+  opacity: calc(.18 + var(--energy) * .55);
+  animation: musicOrbit 5s linear infinite;
+  animation-play-state: paused;
   pointer-events:none;
 }
 
 #musicToggle::after{
   content:"";
   position:absolute;
-  inset:-3px;
+  inset:-9px;
   border-radius:999px;
   background: radial-gradient(circle at 50% 50%,
     rgba(255,255,255,.65),
     rgba(255,255,255,0) 60%);
-  opacity: calc(var(--kick) * .85);
-  transform: scale(calc(1 + var(--kick) * .25));
+  border:1px solid color-mix(in oklab, var(--a1) 80%, white);
+  box-shadow:0 0 12px color-mix(in oklab, var(--a2) 55%, transparent);
+  opacity: calc(var(--kick) * .8);
+  transform: scale(calc(1 + var(--kick) * .2));
   pointer-events:none;
 }
+
+.dock.visual-active #musicToggle::before{ animation-play-state:running; }
+@keyframes musicOrbit{ to{ transform:rotate(360deg); } }
 
 /* toast */
 .toast{
@@ -630,15 +646,7 @@ body.is-playing .eq i{
 
 .heartsLayer.is-paused .heartDrop{ animation-play-state: paused; }
 
-/* 如果系统要求减少动画，完全关掉爱心层 */
+/* Preserve the explicitly requested falling hearts in reduced-motion mode. */
 @media (prefers-reduced-motion: reduce){
-  .heartsLayer{
-    display: none !important;
-  }
-}
-
-
-/* 降低动画模式：仍然保留基本布局，去掉微动画 */
-@media (prefers-reduced-motion: reduce){
-  *, *::before, *::after{ animation:none !important; transition:none !important; }
+  *:not(.heartDrop), *::before, *::after{ animation:none !important; transition:none !important; }
 }

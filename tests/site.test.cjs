@@ -48,7 +48,7 @@ test('Published assets, compression, caching and audio streaming', async t => {
       assert.equal(raw.headers['content-encoding'], undefined);
       assert.deepEqual(raw.data, original);
     }
-    assert(manifest.text.brotliBytes < 15000);
+    assert(manifest.text.brotliBytes < 16384); // Includes the audio-reactive canvas; no runtime bundles.
   });
   await t.test('Hashed assets are immutable; HTML revalidates with ETag', async () => {
     const page = await get(origin, '/');
@@ -57,6 +57,16 @@ test('Published assets, compression, caching and audio streaming', async t => {
     assert.equal(cached.status, 304); assert.equal(cached.data.length, 0);
     const css = manifest.files.find(file => file.endsWith('.css'));
     assert((await get(origin, css)).headers['cache-control'].includes('immutable'));
+  });
+  await t.test('New build hashes are served without restarting preview', async () => {
+    const source = Buffer.from('/* rebuild fixture */');
+    const hash = require('node:crypto').createHash('sha256').update(source).digest('hex').slice(0, 12);
+    const name = `app.${hash}.js`;
+    await fs.writeFile(path.join(outDir, name), source);
+    const response = await get(origin, name);
+    assert.equal(response.status, 200);
+    assert.deepEqual(response.data, source);
+    assert.equal((await get(origin, name.toUpperCase())).status, 404);
   });
   await t.test('Audio byte ranges, suffixes, invalid ranges, HEAD and If-Range', async () => {
     const audio = await fs.readFile(path.join(outDir, '1.mp3'));

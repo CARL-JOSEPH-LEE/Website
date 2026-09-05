@@ -120,9 +120,8 @@
     let pageActive = !document.hidden;
 
     const sync = () => {
-      layer.hidden = motionQuery.matches;
       layer.classList.toggle("is-paused", !pageActive);
-      if (motionQuery.matches || !pageActive) return;
+      if (!pageActive) return;
 
       const compact = !finePointerQuery.matches;
       const lowPower = navigator.connection?.saveData || (navigator.hardwareConcurrency > 0 && navigator.hardwareConcurrency <= 4);
@@ -154,7 +153,6 @@
       sync();
     });
     on(window, "pageshow", () => { pageActive = !document.hidden; sync(); });
-    on(motionQuery, "change", sync);
     on(finePointerQuery, "change", sync);
     sync();
   };
@@ -202,6 +200,8 @@
     let audioCtx = null;
     let analyser = null;
     let freq = null;
+    let waveform = null;
+    let bands = [];
     let srcNode = null;
     let analyserUnavailable = false;
     let pendingResumes = 0;
@@ -225,9 +225,21 @@
           audioCtx = new Ctx();
           on(audioCtx, "statechange", () => syncAudioState());
           analyser = audioCtx.createAnalyser();
-          analyser.fftSize = 256;
-          analyser.smoothingTimeConstant = 0.3;
+          analyser.fftSize = 2048;
+          analyser.minDecibels = -90;
+          analyser.maxDecibels = -15;
+          analyser.smoothingTimeConstant = 0.15;
           freq = new Uint8Array(analyser.frequencyBinCount);
+          waveform = new Uint8Array(analyser.fftSize);
+          const binHz = audioCtx.sampleRate / analyser.fftSize;
+          // Logarithmic bands separate bass, voices and treble instead of
+          // sampling one widely spaced bin per bar.
+          const lowHz = 45, highHz = Math.min(16000, audioCtx.sampleRate / 2);
+          bands = bars.map((_, i) => {
+            const start = Math.max(1, Math.floor(lowHz * (highHz / lowHz) ** (i / bars.length) / binHz));
+            const end = Math.min(freq.length, Math.max(start + 1, Math.ceil(lowHz * (highHz / lowHz) ** ((i + 1) / bars.length) / binHz)));
+            return { start, end };
+          });
           srcNode = audioCtx.createMediaElementSource(bgMusic);
           srcNode.connect(analyser);
           analyser.connect(audioCtx.destination);
@@ -236,6 +248,7 @@
           analyserUnavailable = true;
           analyser = null;
           freq = null;
+          waveform = null;
           if (srcNode) {
             srcNode.disconnect();
             srcNode.connect(audioCtx.destination);
@@ -250,10 +263,19 @@
     };
 
     const bars = eqEl ? $$("i", eqEl) : [];
-    const restingLevels = bars.map(bar => Number.parseFloat(getComputedStyle(bar).getPropertyValue("--level")) || 0.2);
-    const levels = Float32Array.from(restingLevels);
+    const REST_LEVEL = 0.055;
+    const levels = new Float32Array(bars.length).fill(REST_LEVEL);
+    const echoes = new Float32Array(bars.length).fill(REST_LEVEL);
+    const peaks = new Float32Array(bars.length).fill(REST_LEVEL);
+    const peakHolds = new Float32Array(bars.length);
+    const previousBandEnergy = new Float32Array(bars.length);
     const previousBars = new Array(bars.length).fill("");
+    let hasSpectrum = false;
     let vizRAF = 0;
+    let vizTimer = 0;
+    let frameClockSlow = false;
+    let healthyFrames = 0;
+    let lastClock = 0;
     let lastFrame = 0;
     let lastProgress = 0;
     let previousProgress = "";
@@ -261,13 +283,147 @@
     let previousKick = "";
     let lastBeat = 0;
     let bassAverage = 0;
+    let rmsAverage = 0;
+    let glowEnergy = 0;
     let kick = 0;
     let tiltX = 0;
     let tiltY = 0;
     let previousDockTransform = "";
+
+    // One small, pixel-ratio-capped canvas replaces dozens of per-frame style
+    // writes. Keep the HTML bars as a fallback if Canvas 2D is unavailable.
+    let spectrumCanvas = null, spectrumContext = null, canvasUnavailable = false;
+    let spectrumWidth = 0, spectrumHeight = 0, spectrumDpr = 0;
+    let spectrumDirty = true;
+    const columnOrder = bars.map((_, i) => i < bars.length / 2 ? bars.length - 2 - i * 2 : (i - bars.length / 2) * 2 + 1);
+    const columnColors = columnOrder.map(band => `hsl(${315 - band / Math.max(1, bars.length - 1) * 135} 100% 65%)`);
+    const particles = Array.from({ length: 16 }, () => ({ x: 0, y: 0, vx: 0, vy: 0, life: 0 }));
+    let particleIndex = 0;
+    let lastSpectrumBeat = 0;
+    let spectrumGradients = [];
+    let floorGradient = null;
+
+    const prepareSpectrum = () => {
+      if (canvasUnavailable || !eqEl) return false;
+      if (!spectrumCanvas) {
+        spectrumCanvas = document.createElement("canvas");
+        spectrumCanvas.className = "eqCanvas";
+        spectrumCanvas.setAttribute("aria-hidden", "true");
+        spectrumContext = spectrumCanvas.getContext("2d");
+        if (!spectrumContext) { canvasUnavailable = true; return false; }
+        eqEl.appendChild(spectrumCanvas);
+        const bounds = eqEl.getBoundingClientRect();
+        spectrumWidth = bounds.width; spectrumHeight = bounds.height;
+        if (window.ResizeObserver) {
+          new ResizeObserver(entries => {
+            const box = entries[0].contentRect;
+            spectrumWidth = box.width; spectrumHeight = box.height; spectrumDirty = true;
+          }).observe(eqEl);
+        } else {
+          on(window, "resize", () => {
+            const box = eqEl.getBoundingClientRect();
+            spectrumWidth = box.width; spectrumHeight = box.height; spectrumDirty = true;
+          }, { passive: true });
+        }
+      }
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      if (spectrumDirty || spectrumDpr !== dpr) {
+        spectrumDpr = dpr; spectrumDirty = false;
+        spectrumCanvas.width = Math.max(1, Math.round(spectrumWidth * dpr));
+        spectrumCanvas.height = Math.max(1, Math.round(spectrumHeight * dpr));
+        spectrumContext.setTransform(dpr, 0, 0, dpr, 0, 0);
+        spectrumGradients = columnColors.map(color => {
+          const gradient = spectrumContext.createLinearGradient(0, spectrumHeight, 0, 0);
+          gradient.addColorStop(0, color); gradient.addColorStop(0.72, color); gradient.addColorStop(1, "#ffffff");
+          return gradient;
+        });
+        floorGradient = spectrumContext.createLinearGradient(0, 0, spectrumWidth, 0);
+        floorGradient.addColorStop(0, "#00e5ff"); floorGradient.addColorStop(0.5, "#ff36bb"); floorGradient.addColorStop(1, "#00e5ff");
+      }
+      eqEl.classList.add("is-canvas");
+      return true;
+    };
+
+    const renderSpectrum = dt => {
+      if (!prepareSpectrum()) {
+        for (let i = 0; i < bars.length; i++) {
+          const value = `scaleY(${levels[i].toFixed(3)})`;
+          if (value !== previousBars[i]) { bars[i].style.transform = value; previousBars[i] = value; }
+        }
+        return;
+      }
+      const ctx = spectrumContext, w = spectrumWidth, h = spectrumHeight;
+      const floor = h - 6, travel = floor - 2, step = w / bars.length;
+      const barWidth = Math.max(1, step - (w < 150 ? 1 : 1.8));
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = floorGradient;
+      ctx.globalAlpha = glowEnergy * 0.12;
+      ctx.fillRect(0, h * 0.48, w, h * 0.52);
+
+      // The expanding arcs are driven by detected onsets, never a timer.
+      if (kick > 0.02) {
+        ctx.strokeStyle = floorGradient;
+        ctx.globalAlpha = kick * 0.65;
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.ellipse(w / 2, floor, w * (0.1 + (1 - kick) * 0.5), travel * (0.25 + (1 - kick) * 0.85), 0, Math.PI, Math.PI * 2);
+        ctx.stroke();
+      }
+      if (lastBeat !== lastSpectrumBeat && kick > 0.1) {
+        lastSpectrumBeat = lastBeat;
+        for (const column of [5, 11, 16, 22]) {
+          const band = columnOrder[Math.min(column, bars.length - 1)];
+          if (levels[band] < 0.18) continue;
+          const particle = particles[particleIndex++ % particles.length];
+          particle.x = (column + 0.5) * step; particle.y = floor - levels[band] * travel;
+          particle.vx = (column - bars.length / 2) * 0.0014; particle.vy = -0.035;
+          particle.life = 1;
+        }
+      }
+      for (let column = 0; column < bars.length; column++) {
+        const band = columnOrder[column], x = column * step + (step - barWidth) / 2;
+        const top = floor - levels[band] * travel;
+        ctx.fillStyle = columnColors[column];
+        ctx.globalAlpha = 0.17;
+        ctx.fillRect(x, floor - echoes[band] * travel, barWidth, echoes[band] * travel);
+        ctx.globalAlpha = 0.16 + kick * 0.1;
+        ctx.fillRect(x - 1.4, top - 0.5, barWidth + 2.8, floor - top + 1);
+        ctx.globalAlpha = 0.92;
+        ctx.fillStyle = spectrumGradients[column];
+        ctx.fillRect(x, top, barWidth, Math.max(1, floor - top));
+        ctx.globalAlpha = 0.34;
+        ctx.fillStyle = "#09091b";
+        for (let y = floor - 3; y > top + 1; y -= 3.5) ctx.fillRect(x, y, barWidth, 0.7);
+        ctx.globalAlpha = 0.95;
+        ctx.fillStyle = "#e9fbff";
+        ctx.fillRect(x, floor - peaks[band] * travel - 1.2, barWidth, 1.1);
+        ctx.globalAlpha = 0.2;
+        ctx.fillStyle = columnColors[column];
+        ctx.fillRect(x, floor + 2, barWidth, levels[band] * 4);
+      }
+      // A bright ridge connects the real band envelope, with a soft neon edge.
+      ctx.beginPath();
+      for (let column = 0; column < bars.length; column++) {
+        const x = (column + 0.5) * step, y = floor - levels[columnOrder[column]] * travel;
+        if (column) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+      }
+      ctx.strokeStyle = "#ffbaff"; ctx.lineWidth = 3; ctx.globalAlpha = 0.16; ctx.stroke();
+      ctx.strokeStyle = "#edffff"; ctx.lineWidth = 0.8; ctx.globalAlpha = 0.72; ctx.stroke();
+      for (const particle of particles) {
+        if (particle.life <= 0) continue;
+        particle.life = Math.max(0, particle.life - dt / 340);
+        particle.x += particle.vx * dt; particle.y += particle.vy * dt; particle.vy += dt * 0.00006;
+        ctx.globalAlpha = particle.life * 0.85; ctx.fillStyle = "#f3fdff";
+        ctx.fillRect(particle.x, particle.y, 1.4, 1.4);
+      }
+      ctx.globalAlpha = 0.3 + kick * 0.45; ctx.fillStyle = floorGradient;
+      ctx.fillRect(0, floor + 0.5, w, 0.8);
+      ctx.globalAlpha = 1;
+    };
     const renderDockTransform = () => {
-      const transform = tiltX || tiltY || kick
-        ? `translateX(-50%) perspective(900px) rotateX(${tiltX.toFixed(2)}deg) rotateY(${tiltY.toFixed(2)}deg) scale(${(1 + kick * 0.02).toFixed(4)})`
+      const bounce = motionQuery.matches ? 0 : kick;
+      const transform = tiltX || tiltY || bounce
+        ? `translateX(-50%) perspective(900px) rotateX(${tiltX.toFixed(2)}deg) rotateY(${tiltY.toFixed(2)}deg) scale(${(1 + bounce * 0.012).toFixed(4)})`
         : "";
       if (transform === previousDockTransform) return;
       // A non-inherited transform keeps each beat out of the dock's descendants.
@@ -286,67 +442,122 @@
       }
     };
 
-    const stopViz = () => {
+    const stopViz = (resetSpectrum = false) => {
       cancelAnimationFrame(vizRAF);
+      clearTimeout(vizTimer);
       vizRAF = 0;
+      vizTimer = 0;
+      frameClockSlow = false;
+      healthyFrames = 0;
+      lastClock = 0;
       lastFrame = 0;
       kick = 0;
       bassAverage = 0;
+      rmsAverage = 0;
+      glowEnergy = 0;
+      dock.classList.remove("visual-active");
+      if (eqEl) eqEl.dataset.state = hasSpectrum && !resetSpectrum ? "frozen" : "idle";
       if (previousEnergy !== "0") toggleBtn.style.setProperty("--energy", "0");
       if (previousKick !== "0") toggleBtn.style.setProperty("--kick", "0");
       renderDockTransform();
       previousEnergy = previousKick = "0";
+      // A pause preserves the exact last rendered spectrum. Only a new track
+      // or a failed source clears it, so there is no fabricated resting chart.
+      if (hasSpectrum && !resetSpectrum) return;
+      hasSpectrum = false;
+      eqEl?.classList.remove("is-canvas");
+      if (spectrumContext) spectrumContext.clearRect(0, 0, spectrumWidth, spectrumHeight);
+      for (const particle of particles) particle.life = 0;
+      lastSpectrumBeat = 0;
       for (let i = 0; i < bars.length; i++) {
         if (previousBars[i]) bars[i].style.removeProperty("transform");
-        levels[i] = restingLevels[i];
+        levels[i] = REST_LEVEL;
+        echoes[i] = peaks[i] = REST_LEVEL;
+        peakHolds[i] = 0;
+        previousBandEnergy[i] = 0;
         previousBars[i] = "";
       }
     };
 
-    // Playback is user-initiated. Keep its local spectrum feedback available
-    // with reduced motion, while disabling decorative motion and beat pulses.
+    // The local spectrum remains responsive in both motion modes; large-area
+    // motion is disabled when reduced motion is requested.
     const canVisualize = () => pageActive && !bgMusic.paused && !bgMusic.ended && !buffering && audioCtx?.state === "running" && analyser && freq && bars.length;
+    const scheduleViz = () => {
+      // Some embedded previews report a visible page but throttle RAF to 1 Hz.
+      // Race a bounded timer against RAF; both are cancelled on pause/hide.
+      const tick = (time, fromTimer) => {
+        cancelAnimationFrame(vizRAF);
+        clearTimeout(vizTimer);
+        vizRAF = vizTimer = 0;
+        if (fromTimer) { frameClockSlow = true; healthyFrames = 0; }
+        else {
+          healthyFrames = lastClock && time - lastClock < 50 ? healthyFrames + 1 : 0;
+          if (healthyFrames >= 4) frameClockSlow = false;
+        }
+        lastClock = time;
+        draw(time);
+      };
+      vizRAF = requestAnimationFrame(time => tick(time, false));
+      vizTimer = setTimeout(() => tick(performance.now(), true), frameClockSlow ? 34 : 120);
+    };
     const draw = ts => {
       vizRAF = 0;
       if (!canVisualize()) { stopViz(); return; }
-      vizRAF = requestAnimationFrame(draw);
-      const elapsed = ts - lastFrame;
+      scheduleViz();
+      const elapsed = lastFrame ? ts - lastFrame : 16.67;
       const reducedMotion = motionQuery.matches;
-      if (elapsed < (reducedMotion ? 66 : 32)) return; // About 15/30 spectrum updates/sec.
+      if (lastFrame && elapsed < (reducedMotion ? 32 : 16)) return;
       lastFrame = ts;
       analyser.getByteFrequencyData(freq);
-      const smoothing = 1 - Math.exp(-Math.min(elapsed, 100) / 160);
-
-      let sum = 0;
-      for (let i = 0; i < bars.length; i++) {
-        const value = freq[Math.min(1 + i * 2, freq.length - 1)] / 255;
-        sum += value;
-        const target = reducedMotion ? 0.08 + value * 0.66 : 0.02 + value * 0.96;
-        levels[i] = reducedMotion ? levels[i] + (target - levels[i]) * smoothing : target;
-        const transform = `scaleY(${levels[i].toFixed(3)})`;
-        if (transform !== previousBars[i]) {
-          bars[i].style.transform = transform;
-          previousBars[i] = transform;
-        }
+      analyser.getByteTimeDomainData(waveform);
+      const dt = Math.min(elapsed, 64);
+      let squareSum = 0;
+      for (let i = 0; i < waveform.length; i++) {
+        const sample = (waveform[i] - 128) / 128;
+        squareSum += sample * sample;
       }
+      const rms = Math.sqrt(squareSum / waveform.length);
+      const signal = clamp(rms / 0.025, 0, 1);
+      let flux = 0;
+      let bass = 0;
 
-      const energy = reducedMotion ? "0" : (sum / bars.length).toFixed(3);
+      for (let i = 0; i < bars.length; i++) {
+        const { start, end } = bands[i];
+        let sum = 0, peak = 0;
+        for (let bin = start; bin < end; bin++) { const value = freq[bin] / 255; sum += value; peak = Math.max(peak, value); }
+        const value = (sum / (end - start) * 0.65 + peak * 0.35);
+        const strength = Math.pow(clamp((value - 0.08) / 0.87, 0, 1), 1.9) * signal;
+        const onset = Math.max(0, strength - previousBandEnergy[i]);
+        flux += onset;
+        if (i < 7) bass += strength / 7;
+        previousBandEnergy[i] = strength;
+        const punch = clamp(strength * (0.88 + kick * 0.18) + onset * 2.8, 0, 1);
+        const target = REST_LEVEL + punch * (1 - REST_LEVEL);
+        const speed = target > levels[i] ? (reducedMotion ? 14 : 8) : (reducedMotion ? 95 : 65);
+        levels[i] += (target - levels[i]) * (1 - Math.exp(-dt / speed));
+        echoes[i] = Math.max(levels[i], echoes[i] - dt / 720);
+        if (levels[i] >= peaks[i]) { peaks[i] = levels[i]; peakHolds[i] = 110; }
+        else if (peakHolds[i] > 0) peakHolds[i] -= dt;
+        else peaks[i] = Math.max(levels[i], peaks[i] - dt / 460);
+      }
+      hasSpectrum = true;
+
+      flux /= bars.length;
+      const loudness = 1 - Math.exp(-rms * 3.5);
+      glowEnergy += (loudness - glowEnergy) * (1 - Math.exp(-dt / 70));
+      const energy = (glowEnergy * (reducedMotion ? 0.65 : 1)).toFixed(3);
       if (energy !== previousEnergy) {
         // Only the play button's glow consumes energy; keep updates local to it.
         toggleBtn.style.setProperty("--energy", energy);
         previousEnergy = energy;
       }
-      let bass = 0;
-      for (let i = 1; i <= 8; i++) bass += freq[i];
-      bass /= 8 * 255;
-      bassAverage += (bass - bassAverage) * 0.12;
-      if (reducedMotion) {
-        kick = 0;
-      } else if (bass > 0.42 && bass > bassAverage * 1.12 && ts - lastBeat > 140) {
-        kick = 1;
+      bassAverage += (bass - bassAverage) * (1 - Math.exp(-dt / 450));
+      rmsAverage += (rms - rmsAverage) * (1 - Math.exp(-dt / 550));
+      if (rms > 0.02 && ts - lastBeat > 190 && (flux > 0.018 || (bass > 0.2 && bass > bassAverage * 1.08 && rms > rmsAverage * 1.025))) {
+        kick = reducedMotion ? 0.45 : 1;
         lastBeat = ts;
       } else {
-        kick *= Math.exp(-Math.min(elapsed, 100) / 110);
+        kick *= Math.exp(-dt / 150);
       }
       if (kick < 0.005) kick = 0;
       const pulse = kick ? kick.toFixed(3) : "0";
@@ -354,6 +565,7 @@
         toggleBtn.style.setProperty("--kick", pulse);
         previousKick = pulse;
       }
+      renderSpectrum(dt);
       renderDockTransform();
       if (ts - lastProgress >= 100) {
         updateProgress();
@@ -363,7 +575,9 @@
 
     const syncViz = () => {
       if (!canVisualize()) { stopViz(); return; }
-      if (!vizRAF) vizRAF = requestAnimationFrame(draw);
+      if (eqEl) eqEl.dataset.state = "active";
+      dock.classList.add("visual-active");
+      if (!vizRAF && !vizTimer) scheduleViz();
     };
 
     const syncAudioState = () => {
@@ -388,7 +602,7 @@
       bgMusic.pause();
       if (audioCtx) void audioCtx.suspend().catch(() => {});
       setPlayingUI(false);
-      stopViz();
+      stopViz(true);
       setHint("音乐：暂时无法播放，请重试");
       toast("这首音乐暂时无法播放，请重试或切换下一首");
     };
@@ -436,7 +650,7 @@
       failed = false;
       interrupted = false;
       bgMusic.pause();
-      stopViz();
+      stopViz(true);
       idx = ((index - 1) % TOTAL_TRACKS + TOTAL_TRACKS) % TOTAL_TRACKS + 1;
       storage.setItem("trackIndex", String(idx));
       if (trackName) trackName.textContent = `第 ${idx} 首`;
@@ -488,7 +702,7 @@
     let bounds = null;
     let pointerX = 0;
     let pointerY = 0;
-    const canTilt = () => pageActive && finePointerQuery.matches && !motionQuery.matches;
+    const canTilt = () => pageActive && !motionQuery.matches;
     const resetTilt = () => {
       cancelAnimationFrame(tiltRAF);
       tiltRAF = 0;

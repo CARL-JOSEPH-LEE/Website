@@ -39,7 +39,16 @@ async function startServer({ root = project, port = 0, production = false } = {}
       let name;
       try { name = decodeURIComponent(req.url.split('?')[0]).replace(/^\//, '') || 'index.html'; }
       catch { res.writeHead(400).end(); return; }
-      if (!publicFiles.has(name)) { res.writeHead(404).end('Not found'); return; }
+      if (!publicFiles.has(name)) {
+        // A new build can introduce new content hashes while preview is open.
+        // Refresh only narrowly allowed assets; keep exact-case validation.
+        const generated = /^(?:(?:app|styles)\.[a-f0-9]{12}\.(?:js|css)|assets\/[a-z0-9.-]+\.(?:webp|png))$/.test(name);
+        if (generated) {
+          const folder = path.dirname(path.join(root, name));
+          if ((await fsp.readdir(folder)).includes(path.basename(name))) publicFiles.add(name);
+        }
+        if (!publicFiles.has(name)) { res.writeHead(404).end('Not found'); return; }
+      }
       const original = path.join(root, name);
       let file = original, encoding;
       if (production && !req.headers.range && /\.(html|css|js)$/.test(name)) {
