@@ -1,0 +1,29 @@
+项目保持原生 HTML、CSS、JavaScript，页面运行不依赖 npm 或第三方框架。
+
+本地开发
+安装 Node.js 20.19 或更新版本，在 Website 目录运行 npm run dev，打开终端给出的本地地址。
+默认只监听本机 127.0.0.1:4173。需要更换端口时设置 PORT 环境变量。
+双击 index.html 仍可打开页面并播放音乐；真实音浪需要通过 HTTP 本地预览或 HTTPS 网站运行。
+
+发布构建
+运行 npm run build，将 dist 内的网站文件上传到静态托管服务。
+运行 npm run preview 可以预览构建结果，验证压缩、缓存和音乐分段请求。
+构建会给脚本、样式和图片添加内容哈希，并生成 HTML、CSS、JS 的 Brotli 和 gzip 副本。
+源目录中的大尺寸图片、工具和测试不进入发布清单；11 首原始音频保持原音质，点击播放才请求。
+构建只覆盖生成文件，不清空 dist。build-manifest.json 记录本次构建的有效文件；使用目录增量发布时旧哈希文件可以保留，以兼容已有页面。
+静态托管服务需要配置内容协商才能使用 .br/.gz 副本：按 Accept-Encoding 返回压缩内容，设置正确 Content-Encoding、Content-Type 和 Vary: Accept-Encoding。
+HTML 与音频使用 no-cache 重新验证；带内容哈希的资源可使用 public, max-age=31536000, immutable。
+没有上述服务器配置时，普通文件仍然可用，浏览器不会自动使用预压缩副本。
+
+持续验证
+npm test：无需安装依赖，检查构建引用、资源预算、压缩一致性、缓存、音频 Range 和公开文件范围。
+npm install：安装浏览器测试使用的开发依赖。
+npx playwright install chromium：安装自动化测试浏览器。
+npm run test:browser：运行主题、复制、音乐、音浪、后台恢复、错误恢复等浏览器回归测试。
+也可通过 BROWSER_EXECUTABLE_PATH 指定现有 Chrome 或 Edge 的可执行文件路径。
+浏览器回归结果输出到 test-results/browser.json。
+
+视觉约束
+保留三套主题、整体排版、卡片、按钮和播放器外形。
+减少动态效果偏好下，隐藏爱心、关闭倾斜和节拍缩放，但播放后仍提供平滑的真实音浪反馈。
+小屏幕仅调整播放器内部可用宽度，避免曲目编号被频谱挤掉。

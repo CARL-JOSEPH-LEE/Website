@@ -1,0 +1,15 @@
+{
+  "name": "dj-carl-little-universe",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "node tools/serve.cjs",
+    "build": "node tools/build.cjs",
+    "preview": "node tools/serve.cjs --dist",
+    "test": "node --test tests/site.test.cjs",
+    "test:browser": "node tests/browser.cjs",
+    "check": "npm test && npm run test:browser"
+  },
+  "engines": { "node": ">=20.19" },
+  "devDependencies": { "playwright": "1.62.1" }
+}

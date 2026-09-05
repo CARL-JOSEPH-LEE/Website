@@ -5,21 +5,23 @@
   const $ = (s, p = document) => p.querySelector(s);
   const $$ = (s, p = document) => Array.from(p.querySelectorAll(s));
   const on = (el, type, fn, opt) => el && el.addEventListener(type, fn, opt);
-  const pick = (arr) => arr[(Math.random() * arr.length) | 0];
+  const lastPicks = new WeakMap();
+  const pick = (arr) => {
+    if (arr.length < 2) return arr[0];
+    const previous = lastPicks.get(arr);
+    let index = Math.floor(Math.random() * (arr.length - (previous === undefined ? 0 : 1)));
+    if (previous !== undefined && index >= previous) index++;
+    lastPicks.set(arr, index);
+    return arr[index];
+  };
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const rand = (a, b) => a + Math.random() * (b - a);
 
-  const storage = (() => {
-    try {
-      const s = window.localStorage;
-      const k = "__dj_test__";
-      s.setItem(k, "1");
-      s.removeItem(k);
-      return s;
-    } catch {
-      return { getItem: () => null, setItem: () => {}, removeItem: () => {} };
-    }
-  })();
+  // Storage can become unavailable after initialization (privacy mode/quota).
+  const storage = {
+    getItem(key) { try { return window.localStorage.getItem(key); } catch { return null; } },
+    setItem(key, value) { try { window.localStorage.setItem(key, value); } catch {} },
+  };
 
   // ---------- toast ----------
   const toastEl = $("#toast");
@@ -32,23 +34,7 @@
     toastTimer = setTimeout(() => toastEl.classList.remove("show"), 1600);
   };
 
-  window.addEventListener("error", (e) => {
-    console.error(e.error || e.message);
-    toast("脚本出错：打开控制台看看报错");
-  });
-
-  // ---------- data ----------
-  const LINKS = [
-    { title: "GitHub",  desc: "@CARL-JOSEPH-LEE", href: "https://github.com/CARL-JOSEPH-LEE", icon: "github.jpg",  badge: "GH" },
-    { title: "Twitter", desc: "@CarlJosephLee1",  href: "https://twitter.com/CarlJosephLee1",  icon: "Twitter.jpg", badge: "X"  },
-    { title: "洛谷",    desc: "算法 / 刷题",       href: "https://www.luogu.com.cn/user/1230548", icon: "lg.jpg", badge: "LG" },
-    { title: "YouTube", desc: "@carljosephlee9537",href: "https://youtube.com/@carljosephlee9537", icon: "youtube.jpg", badge: "YT" },
-    { title: "牛客",    desc: "竞赛 / 训练",       href: "https://ac.nowcoder.com/acm/contest/profile/473495180", icon: "nowcoder.png", badge: "NK" },
-    { title: "osu",     desc: "硬核音游",          href: "https://osu.ppy.sh/users/32702900/fruits", icon: "osu.png", badge: "OS" },
-    { title: "雀魂",    desc: "日麻/二次元",       href: "https://ikeda.sapk.ch/player/19922191/24", icon: "quehun.png", badge: "QH" },
-    { title: "打字狗",  desc: "盲打/竞速",          href: "https://dazigo.vip/personal-page/results?id=1721167720648589313", icon: "dazigo.png", badge: "DZ" },
-  ];
-
+  // ---------- interaction data ----------
   const IDEAS = [
     { t: "夜市散步", s: "边走边聊，走累了就坐下来听歌。" },
     { t: "咖啡馆坐一会儿", s: "你点你喜欢的，我负责认真听你说话。" },
@@ -89,42 +75,6 @@
     { t: "心动挑战：写一封简短信件", s: "‘不需要很长，只需要真诚。’" },
   ];
 
-  // ---------- links render ----------
-  const renderLinks = () => {
-    const grid = $("#linksGrid");
-    if (!grid) return;
-    const frag = document.createDocumentFragment();
-
-    for (let i = 0; i < LINKS.length; i++) {
-      const l = LINKS[i];
-      const a = document.createElement("a");
-      a.className = "linkCard";
-      a.href = l.href;
-      a.target = "_blank";
-      a.rel = "noopener noreferrer";
-
-      const ico = document.createElement("div");
-      ico.className = "ico";
-      if (l.icon) {
-        ico.style.backgroundImage = `url('${l.icon}')`;
-      } else {
-        const fallback = document.createElement("span");
-        fallback.textContent = (l.badge || (l.title || "LINK").slice(0, 2)).toUpperCase();
-        ico.appendChild(fallback);
-      }
-
-      const meta = document.createElement("div");
-      meta.className = "linkMeta";
-      meta.innerHTML = `<p class="t">${l.title}</p><p class="d">${l.desc}</p>`;
-
-      a.append(ico, meta);
-      frag.appendChild(a);
-    }
-
-    grid.innerHTML = "";
-    grid.appendChild(frag);
-  };
-
   // ---------- mood ----------
   const moodMsg = {
     sweet: "切到「甜 · 粉色」",
@@ -132,15 +82,18 @@
     soft:  "切到「柔 · 蓝绿」",
   };
 
-  const setMood = (m) => {
+  const moodButtons = $$("[data-mood-btn]");
+  const setMood = (value, announce = true) => {
+    const m = Object.hasOwn(moodMsg, value) ? value : "sweet";
+    document.documentElement.dataset.mood = m;
     document.body.dataset.mood = m;
     storage.setItem("mood", m);
-    const btns = $$("[data-mood-btn]");
+    const btns = moodButtons;
     for (let i = 0; i < btns.length; i++) {
       const b = btns[i];
       b.setAttribute("aria-pressed", String(b.dataset.moodBtn === m));
     }
-    toast(moodMsg[m] || "切换主题");
+    if (announce) toast(moodMsg[m]);
   };
 
   // ---------- clipboard ----------
@@ -154,323 +107,442 @@
     }
   };
 
-  // ---------- falling hearts (lightweight) ----------
-const createHearts = () => {
-  // 尊重系统“减少动画”设置
-  const prefersReducedMotion =
-    window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
-  if (prefersReducedMotion) return;
+  // ---------- falling hearts: compositor animations, viewport-sized budget ----------
+  const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const finePointerQuery = window.matchMedia("(hover: hover) and (pointer: fine)");
 
-  // 避免重复创建
-  if (document.querySelector(".heartsLayer")) return;
+  const createHearts = () => {
+    const layer = document.createElement("div");
+    layer.className = "heartsLayer";
+    layer.setAttribute("aria-hidden", "true");
+    document.body.appendChild(layer);
+    let resizeTimer = 0;
+    let pageActive = !document.hidden;
 
-  const layer = document.createElement("div");
-  layer.className = "heartsLayer";
-  document.body.appendChild(layer);
+    const sync = () => {
+      layer.hidden = motionQuery.matches;
+      layer.classList.toggle("is-paused", !pageActive);
+      if (motionQuery.matches || !pageActive) return;
 
-  const COUNT = 100; // 20~30 足够丰富；想更稳一点可以改成 18
+      const compact = !finePointerQuery.matches;
+      const lowPower = navigator.connection?.saveData || (navigator.hardwareConcurrency > 0 && navigator.hardwareConcurrency <= 4);
+      const density = Math.round(window.innerWidth * window.innerHeight / 13000);
+      const count = clamp(Math.round(density * (lowPower ? 0.65 : 1)), compact ? 18 : 36, compact ? 40 : 100);
+      while (layer.childElementCount > count) layer.lastElementChild.remove();
+      const fragment = document.createDocumentFragment();
+      for (let i = layer.childElementCount; i < count; i++) {
+        const heart = document.createElement("span");
+        heart.className = "heartDrop";
+        heart.textContent = "❤️";
+        heart.style.left = `${rand(-5, 105).toFixed(2)}vw`;
+        heart.style.animationDuration = `${rand(9, 18).toFixed(2)}s`;
+        heart.style.animationDelay = `${rand(-18, 0).toFixed(2)}s`;
+        heart.style.setProperty("--scale", rand(0.7, 1.3).toFixed(2));
+        fragment.appendChild(heart);
+      }
+      layer.appendChild(fragment);
+    };
 
-  for (let i = 0; i < COUNT; i++) {
-    const h = document.createElement("span");
-    h.className = "heartDrop";
-    h.textContent = "❤️"; // 如果想自己画，可以改成自定义符号/字符
+    on(window, "resize", () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(sync, 160);
+    }, { passive: true });
+    on(document, "visibilitychange", () => { pageActive = !document.hidden; sync(); });
+    on(window, "pagehide", () => {
+      pageActive = false;
+      clearTimeout(resizeTimer);
+      sync();
+    });
+    on(window, "pageshow", () => { pageActive = !document.hidden; sync(); });
+    on(motionQuery, "change", sync);
+    on(finePointerQuery, "change", sync);
+    sync();
+  };
 
-    const left = rand(-5, 105);        // vw，偶尔超一点保证边缘有心
-    const duration = rand(9, 18);      // s，下落时间
-    const delay = rand(-18, 0);        // 负 delay：初始就有心在半空中
-    const scale = rand(0.7, 1.3);      // 大小略有差异
-    const opacity = rand(0.4, 0.9);
-
-    h.style.left = left.toFixed(2) + "vw";
-    h.style.animationDuration = duration.toFixed(2) + "s";
-    h.style.animationDelay = delay.toFixed(2) + "s";
-    h.style.setProperty("--scale", scale.toFixed(2));
-    h.style.opacity = opacity.toFixed(2);
-
-    layer.appendChild(h);
-  }
-};
-
-
-  // ---------- music (EQ batch update) ----------
+  // ---------- music: lazy audio, one bounded visual loop, cancellable playback ----------
   const createMusic = () => {
-    const bgMusic   = $("#bgMusic");
+    const bgMusic = $("#bgMusic");
     const toggleBtn = $("#musicToggle");
-    const nextBtn   = $("#nextTrack");
+    const nextBtn = $("#nextTrack");
     const trackName = $("#trackName");
-    const hint      = $("#musicHint");
-    const progress  = $("#progress");
-    const iconPlay  = $("#iconPlay");
+    const hint = $("#musicHint");
+    const progress = $("#progress");
+    const iconPlay = $("#iconPlay");
     const iconPause = $("#iconPause");
-    const dock      = $("#musicDock");
-    const eqEl      = $("#eq");
-
+    const dock = $("#musicDock");
+    const eqEl = $("#eq");
     if (!bgMusic || !toggleBtn || !dock) return;
 
     const TOTAL_TRACKS = 11;
+    const savedIndex = Number.parseInt(storage.getItem("trackIndex"), 10);
+    let idx = savedIndex >= 1 && savedIndex <= TOTAL_TRACKS ? savedIndex : 1;
+    let sourceIndex = 0;
+    let operation = 0;
+    let wantsPlayback = false;
+    let failed = false;
+    let interrupted = false;
+    let buffering = false;
+    let pageActive = !document.hidden;
 
-    const readIndex = () => {
-      const raw = storage.getItem("trackIndex");
-      const n = parseInt(raw || "", 10);
-      return Number.isFinite(n) && n >= 1 && n <= TOTAL_TRACKS ? n : 1;
-    };
+    // No src, metadata request, AudioContext or decoding until the user plays.
+    bgMusic.preload = "none";
+    bgMusic.volume = 0.9;
 
-    let idx = readIndex();
-
-    bgMusic.preload = "metadata";
-    bgMusic.crossOrigin = "anonymous";
-
-    const setIcons = (playing) => {
-      if (!iconPlay || !iconPause) return;
-      iconPlay.style.display = playing ? "none" : "block";
-      iconPause.style.display = playing ? "block" : "none";
-    };
-
-    const setPlayingUI = (playing) => {
+    const setHint = text => { if (hint && hint.textContent !== text) hint.textContent = text; };
+    const setPlayingUI = playing => {
       document.body.classList.toggle("is-playing", playing);
       dock.classList.toggle("playing", playing);
+      if (iconPlay) iconPlay.style.display = playing ? "none" : "block";
+      if (iconPause) iconPause.style.display = playing ? "block" : "none";
+      toggleBtn.setAttribute("aria-label", playing ? "暂停音乐" : "播放音乐");
+      toggleBtn.setAttribute("aria-pressed", String(playing));
+      toggleBtn.title = playing ? "暂停音乐" : "播放音乐";
     };
-
-    const setKick = (v) => dock.style.setProperty("--kick", String(v));
 
     let audioCtx = null;
     let analyser = null;
     let freq = null;
     let srcNode = null;
-
-    const setupAnalyser = async () => {
+    let analyserUnavailable = false;
+    let pendingResumes = 0;
+    const resumeAudio = () => {
+      if (!audioCtx) return Promise.resolve();
+      pendingResumes++;
+      // Queue every resume so a preceding asynchronous suspend cannot win.
+      return audioCtx.resume().finally(() => {
+        pendingResumes--;
+        syncAudioState();
+      });
+    };
+    const setupAnalyser = () => {
       const Ctx = window.AudioContext || window.webkitAudioContext;
-      if (!Ctx) return;
-
-      if (audioCtx && analyser && freq) {
-        if (audioCtx.state === "suspended") {
-          try { await audioCtx.resume(); } catch {}
+      // file:// media can play natively but becomes silent when routed through
+      // MediaElementAudioSource (opaque-origin CORS). HTTP previews get real EQ.
+      if (!Ctx || window.location.protocol === "file:") return Promise.resolve();
+      if (analyserUnavailable) return resumeAudio();
+      if (!audioCtx) {
+        try {
+          audioCtx = new Ctx();
+          on(audioCtx, "statechange", () => syncAudioState());
+          analyser = audioCtx.createAnalyser();
+          analyser.fftSize = 256;
+          analyser.smoothingTimeConstant = 0.3;
+          freq = new Uint8Array(analyser.frequencyBinCount);
+          srcNode = audioCtx.createMediaElementSource(bgMusic);
+          srcNode.connect(analyser);
+          analyser.connect(audioCtx.destination);
+        } catch {
+          // If Web Audio is unavailable, the native player must still work.
+          analyserUnavailable = true;
+          analyser = null;
+          freq = null;
+          if (srcNode) {
+            srcNode.disconnect();
+            srcNode.connect(audioCtx.destination);
+          } else {
+            if (audioCtx) void audioCtx.close().catch(() => {});
+            audioCtx = null;
+          }
         }
-        return;
       }
-
-      audioCtx = new Ctx();
-      analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 256;
-      analyser.smoothingTimeConstant = 0.3;
-
-      freq = new Uint8Array(analyser.frequencyBinCount);
-
-      if (!srcNode) {
-        srcNode = audioCtx.createMediaElementSource(bgMusic);
-        srcNode.connect(analyser);
-        analyser.connect(audioCtx.destination);
-      }
-
-      if (audioCtx.state === "suspended") {
-        try { await audioCtx.resume(); } catch {}
-      }
+      // Always queue resume, including if a previous pause is still suspending.
+      return resumeAudio();
     };
 
-    // progress RAF
-    let progRAF = 0;
-    const updateProgress = () => {
-      if (!progress) return;
-      const d = bgMusic.duration;
-      if (!d || !isFinite(d) || d <= 0) return;
-      const pct = clamp(bgMusic.currentTime / d, 0, 1);
-      progress.style.width = (pct * 100).toFixed(2) + "%";
-    };
-    const startProgressRAF = () => {
-      cancelAnimationFrame(progRAF);
-      const loop = () => {
-        if (!bgMusic.paused) {
-          updateProgress();
-          progRAF = requestAnimationFrame(loop);
-        }
-      };
-      progRAF = requestAnimationFrame(loop);
-    };
-    const stopProgressRAF = () => cancelAnimationFrame(progRAF);
-
-    // EQ RAF (batch write)
+    const bars = eqEl ? $$("i", eqEl) : [];
+    const restingLevels = bars.map(bar => Number.parseFloat(getComputedStyle(bar).getPropertyValue("--level")) || 0.2);
+    const levels = Float32Array.from(restingLevels);
+    const previousBars = new Array(bars.length).fill("");
     let vizRAF = 0;
-    const stopViz = () => {
-      if (vizRAF) cancelAnimationFrame(vizRAF);
-      vizRAF = 0;
-      document.documentElement.style.setProperty("--energy", "0");
-      setKick(0);
-      if (eqEl) eqEl.style.cssText = "";
+    let lastFrame = 0;
+    let lastProgress = 0;
+    let previousProgress = "";
+    let previousEnergy = "";
+    let previousKick = "";
+    let lastBeat = 0;
+    let bassAverage = 0;
+    let kick = 0;
+    let tiltX = 0;
+    let tiltY = 0;
+    let previousDockTransform = "";
+    const renderDockTransform = () => {
+      const transform = tiltX || tiltY || kick
+        ? `translateX(-50%) perspective(900px) rotateX(${tiltX.toFixed(2)}deg) rotateY(${tiltY.toFixed(2)}deg) scale(${(1 + kick * 0.02).toFixed(4)})`
+        : "";
+      if (transform === previousDockTransform) return;
+      // A non-inherited transform keeps each beat out of the dock's descendants.
+      dock.style.transform = transform;
+      previousDockTransform = transform;
     };
 
-    const startViz = () => {
-      if (!analyser || !freq || !eqEl || vizRAF) return;
-
-      const BARS = 32;
-      const idxMap = new Uint8Array(BARS);
-      for (let i = 0; i < BARS; i++) idxMap[i] = 1 + i * 2;
-
-      let lastBeat = 0;
-      let lastUpdate = 0;
-
-      const loop = (ts) => {
-        if (ts - lastUpdate < 33) {
-          vizRAF = requestAnimationFrame(loop);
-          return;
-        }
-        lastUpdate = ts;
-
-        if (bgMusic.paused || !analyser) {
-          vizRAF = 0;
-          stopViz();
-          return;
-        }
-
-        analyser.getByteFrequencyData(freq);
-
-        let sum = 0;
-        let css = "";
-        const maxIdx = freq.length - 1;
-
-        for (let i = 0; i < BARS; i++) {
-          const fi = idxMap[i] > maxIdx ? maxIdx : idxMap[i];
-          const v = freq[fi] / 255;
-          sum += v;
-          css += `--b${i}:${((2 + v * 96) | 0)}%;`;
-        }
-
-        eqEl.style.cssText = css;
-
-        const energy = sum / BARS;
-        document.documentElement.style.setProperty("--energy", energy.toFixed(3));
-
-        const now = performance.now();
-        if (energy > 0.45 && now - lastBeat > 80) {
-          lastBeat = now;
-          setKick(1);
-          dock.classList.add("beat");
-          setTimeout(() => {
-            setKick(0);
-            dock.classList.remove("beat");
-          }, 60);
-        }
-
-        vizRAF = requestAnimationFrame(loop);
-      };
-
-      vizRAF = requestAnimationFrame(loop);
-    };
-
-    const setTrack = (i, autoplay = false) => {
-      const ii = parseInt(String(i), 10);
-      const safeI = Number.isFinite(ii) ? ii : 1;
-
-      idx = ((safeI - 1 + TOTAL_TRACKS) % TOTAL_TRACKS) + 1;
-      storage.setItem("trackIndex", String(idx));
-
-      bgMusic.src = `${idx}.mp3`;
-      bgMusic.load();
-
-      if (trackName) trackName.textContent = `第 ${idx} 首`;
-      if (hint) hint.textContent = autoplay ? "音乐：加载中…" : "音乐：点 ▶ 开始";
-
-      if (!autoplay) {
-        bgMusic.pause();
-        setIcons(false);
-        setPlayingUI(false);
-        stopViz();
-        stopProgressRAF();
-        if (progress) progress.style.width = "0%";
-      } else {
-        play();
+    const updateProgress = () => {
+      if (!progress || !pageActive) return;
+      const duration = bgMusic.duration;
+      const ratio = Number.isFinite(duration) && duration > 0 ? clamp(bgMusic.currentTime / duration, 0, 1) : 0;
+      const value = `scaleX(${ratio.toFixed(5)})`;
+      if (value !== previousProgress) {
+        progress.style.transform = value;
+        previousProgress = value;
       }
+    };
+
+    const stopViz = () => {
+      cancelAnimationFrame(vizRAF);
+      vizRAF = 0;
+      lastFrame = 0;
+      kick = 0;
+      bassAverage = 0;
+      if (previousEnergy !== "0") toggleBtn.style.setProperty("--energy", "0");
+      if (previousKick !== "0") toggleBtn.style.setProperty("--kick", "0");
+      renderDockTransform();
+      previousEnergy = previousKick = "0";
+      for (let i = 0; i < bars.length; i++) {
+        if (previousBars[i]) bars[i].style.removeProperty("transform");
+        levels[i] = restingLevels[i];
+        previousBars[i] = "";
+      }
+    };
+
+    // Playback is user-initiated. Keep its local spectrum feedback available
+    // with reduced motion, while disabling decorative motion and beat pulses.
+    const canVisualize = () => pageActive && !bgMusic.paused && !bgMusic.ended && !buffering && audioCtx?.state === "running" && analyser && freq && bars.length;
+    const draw = ts => {
+      vizRAF = 0;
+      if (!canVisualize()) { stopViz(); return; }
+      vizRAF = requestAnimationFrame(draw);
+      const elapsed = ts - lastFrame;
+      const reducedMotion = motionQuery.matches;
+      if (elapsed < (reducedMotion ? 66 : 32)) return; // About 15/30 spectrum updates/sec.
+      lastFrame = ts;
+      analyser.getByteFrequencyData(freq);
+      const smoothing = 1 - Math.exp(-Math.min(elapsed, 100) / 160);
+
+      let sum = 0;
+      for (let i = 0; i < bars.length; i++) {
+        const value = freq[Math.min(1 + i * 2, freq.length - 1)] / 255;
+        sum += value;
+        const target = reducedMotion ? 0.08 + value * 0.66 : 0.02 + value * 0.96;
+        levels[i] = reducedMotion ? levels[i] + (target - levels[i]) * smoothing : target;
+        const transform = `scaleY(${levels[i].toFixed(3)})`;
+        if (transform !== previousBars[i]) {
+          bars[i].style.transform = transform;
+          previousBars[i] = transform;
+        }
+      }
+
+      const energy = reducedMotion ? "0" : (sum / bars.length).toFixed(3);
+      if (energy !== previousEnergy) {
+        // Only the play button's glow consumes energy; keep updates local to it.
+        toggleBtn.style.setProperty("--energy", energy);
+        previousEnergy = energy;
+      }
+      let bass = 0;
+      for (let i = 1; i <= 8; i++) bass += freq[i];
+      bass /= 8 * 255;
+      bassAverage += (bass - bassAverage) * 0.12;
+      if (reducedMotion) {
+        kick = 0;
+      } else if (bass > 0.42 && bass > bassAverage * 1.12 && ts - lastBeat > 140) {
+        kick = 1;
+        lastBeat = ts;
+      } else {
+        kick *= Math.exp(-Math.min(elapsed, 100) / 110);
+      }
+      if (kick < 0.005) kick = 0;
+      const pulse = kick ? kick.toFixed(3) : "0";
+      if (pulse !== previousKick) {
+        toggleBtn.style.setProperty("--kick", pulse);
+        previousKick = pulse;
+      }
+      renderDockTransform();
+      if (ts - lastProgress >= 100) {
+        updateProgress();
+        lastProgress = ts;
+      }
+    };
+
+    const syncViz = () => {
+      if (!canVisualize()) { stopViz(); return; }
+      if (!vizRAF) vizRAF = requestAnimationFrame(draw);
+    };
+
+    const syncAudioState = () => {
+      if (!audioCtx) return;
+      if (audioCtx.state === "running") { syncViz(); return; }
+      stopViz();
+      if (wantsPlayback && !bgMusic.paused && (audioCtx.state === "interrupted" || pendingResumes === 0)) {
+        interrupted = true;
+        wantsPlayback = false;
+        operation++;
+        bgMusic.pause();
+        setPlayingUI(false);
+        setHint("音乐：已中断，点 ▶ 继续");
+      }
+    };
+
+    const failPlayback = () => {
+      if (failed) return;
+      failed = true;
+      wantsPlayback = false;
+      operation++;
+      bgMusic.pause();
+      if (audioCtx) void audioCtx.suspend().catch(() => {});
+      setPlayingUI(false);
+      stopViz();
+      setHint("音乐：暂时无法播放，请重试");
+      toast("这首音乐暂时无法播放，请重试或切换下一首");
     };
 
     const play = async () => {
+      const request = ++operation;
+      wantsPlayback = true;
+      failed = false;
+      interrupted = false;
+      buffering = false;
+      setHint("音乐：加载中…");
+      setPlayingUI(true);
+      if (sourceIndex !== idx || bgMusic.error) {
+        sourceIndex = idx;
+        bgMusic.src = `${idx}.mp3`;
+      }
       try {
-        if (!bgMusic.src) setTrack(idx, false);
-        await setupAnalyser();
-
-        if (hint) hint.textContent = "音乐：加载中…";
-        bgMusic.volume = 0.9;
-
-        await bgMusic.play();
-
-        setIcons(true);
-        setPlayingUI(true);
-        if (hint) hint.textContent = "音乐：正在播放";
-        startViz();
-        startProgressRAF();
-      } catch (err) {
-        console.error(err);
-        setIcons(false);
-        setPlayingUI(false);
-        stopViz();
-        stopProgressRAF();
-        const name = err?.name || "PlayError";
-        toast(`播放失败（${name}）：检查是否存在 ${idx}.mp3`);
-        if (hint) hint.textContent = "音乐：播放失败（检查 mp3 文件）";
+        // Start both in the user gesture; awaiting resume first can lose activation.
+        const ready = setupAnalyser();
+        const started = bgMusic.play();
+        await Promise.all([ready, started]);
+        if (request !== operation || !wantsPlayback) return;
+        setHint("音乐：正在播放");
+        syncViz();
+      } catch {
+        // load()/pause()/rapid next clicks may abort an obsolete play promise.
+        if (request === operation && wantsPlayback) failPlayback();
       }
     };
 
-    on(toggleBtn, "click", () => {
-      if (bgMusic.paused) {
-        play();
-      } else {
-        bgMusic.pause();
-        setIcons(false);
-        setPlayingUI(false);
-        stopViz();
-        stopProgressRAF();
-        if (hint) hint.textContent = "音乐：已暂停";
-      }
-    });
-
-    on(nextBtn, "click", () => {
-      setTrack(idx + 1, true);
-      toast("🎧 下一首");
-    });
-
-    on(bgMusic, "waiting", () => hint && (hint.textContent = "音乐：缓冲中…"));
-    on(bgMusic, "canplay", () => !bgMusic.paused && hint && (hint.textContent = "音乐：正在播放"));
-    on(bgMusic, "loadedmetadata", updateProgress);
-    on(bgMusic, "timeupdate", updateProgress);
-    on(bgMusic, "ended", () => setTrack(idx + 1, true));
-
-    on(bgMusic, "error", () => {
-      const code = bgMusic.error?.code;
-      toast(`音频加载失败（code=${code ?? "?"}）：请确认 ${idx}.mp3 在同目录`);
-      if (hint) hint.textContent = "音乐：加载失败（找不到 mp3？）";
-      setIcons(false);
+    const pause = () => {
+      wantsPlayback = false;
+      interrupted = false;
+      operation++;
+      bgMusic.pause();
       setPlayingUI(false);
       stopViz();
-      stopProgressRAF();
-    });
-
-    // dock tilt
-    on(dock, "pointermove", (e) => {
-      const r = dock.getBoundingClientRect();
-      const px = (e.clientX - r.left) / r.width - 0.5;
-      const py = (e.clientY - r.top) / r.height - 0.5;
-      dock.style.setProperty("--tiltX", `${(-py * 10).toFixed(2)}deg`);
-      dock.style.setProperty("--tiltY", `${(px * 12).toFixed(2)}deg`);
-    });
-
-    const resetTilt = () => {
-      dock.style.setProperty("--tiltX", "0deg");
-      dock.style.setProperty("--tiltY", "0deg");
+      updateProgress();
+      setHint("音乐：已暂停");
     };
-    on(dock, "pointerleave", resetTilt);
-    on(window, "blur", resetTilt);
 
-    setTrack(idx, false);
+    const setTrack = (index, autoplay = false) => {
+      operation++;
+      wantsPlayback = false;
+      failed = false;
+      interrupted = false;
+      bgMusic.pause();
+      stopViz();
+      idx = ((index - 1) % TOTAL_TRACKS + TOTAL_TRACKS) % TOTAL_TRACKS + 1;
+      storage.setItem("trackIndex", String(idx));
+      if (trackName) trackName.textContent = `第 ${idx} 首`;
+      if (progress) progress.style.transform = "scaleX(0)";
+      previousProgress = "scaleX(0)";
+      setPlayingUI(false);
+      setHint("音乐：点 ▶ 开始");
+      if (autoplay) void play();
+    };
+
+    on(toggleBtn, "click", () => { if (wantsPlayback || !bgMusic.paused) pause(); else void play(); });
+    on(nextBtn, "click", () => { setTrack(idx + 1, true); toast("🎧 下一首"); });
+    on(bgMusic, "play", () => {
+      if (bgMusic.paused) return;
+      wantsPlayback = true;
+      setPlayingUI(true);
+    });
+    on(bgMusic, "playing", () => {
+      if (bgMusic.paused) return;
+      buffering = false;
+      setHint("音乐：正在播放");
+      syncViz();
+    });
+    on(bgMusic, "pause", () => {
+      if (!bgMusic.paused) return;
+      wantsPlayback = false;
+      operation++;
+      setPlayingUI(false);
+      stopViz();
+      updateProgress();
+      if (audioCtx) void audioCtx.suspend().catch(() => {});
+      if (!failed) setHint(interrupted ? "音乐：已中断，点 ▶ 继续" : "音乐：已暂停");
+    });
+    on(bgMusic, "waiting", () => {
+      if (!wantsPlayback) return;
+      buffering = true;
+      setHint("音乐：缓冲中…");
+      stopViz();
+    });
+    on(bgMusic, "loadedmetadata", updateProgress);
+    on(bgMusic, "durationchange", updateProgress);
+    on(bgMusic, "timeupdate", updateProgress);
+    on(bgMusic, "seeked", updateProgress);
+    on(bgMusic, "ended", () => setTrack(idx + 1, true));
+    on(bgMusic, "error", failPlayback);
+
+    // Tilt reads its bounds once on entry, then coalesces pointer writes per frame.
+    let tiltRAF = 0;
+    let bounds = null;
+    let pointerX = 0;
+    let pointerY = 0;
+    const canTilt = () => pageActive && finePointerQuery.matches && !motionQuery.matches;
+    const resetTilt = () => {
+      cancelAnimationFrame(tiltRAF);
+      tiltRAF = 0;
+      bounds = null;
+      tiltX = tiltY = 0;
+      renderDockTransform();
+    };
+    on(dock, "pointerenter", e => {
+      if (canTilt() && e.pointerType !== "touch") bounds = dock.getBoundingClientRect();
+    }, { passive: true });
+    on(dock, "pointermove", e => {
+      if (!canTilt() || e.pointerType === "touch") return;
+      if (!bounds) bounds = dock.getBoundingClientRect();
+      pointerX = e.clientX;
+      pointerY = e.clientY;
+      if (tiltRAF) return;
+      tiltRAF = requestAnimationFrame(() => {
+        tiltRAF = 0;
+        if (!bounds || !canTilt()) return;
+        const px = clamp((pointerX - bounds.left) / bounds.width - 0.5, -0.5, 0.5);
+        const py = clamp((pointerY - bounds.top) / bounds.height - 0.5, -0.5, 0.5);
+        tiltX = -py * 10;
+        tiltY = px * 12;
+        renderDockTransform();
+      });
+    }, { passive: true });
+    on(dock, "pointerleave", resetTilt);
+    on(dock, "pointercancel", resetTilt);
+    on(window, "blur", resetTilt);
+    on(window, "resize", resetTilt, { passive: true });
+    on(finePointerQuery, "change", resetTilt);
+    on(motionQuery, "change", () => { stopViz(); resetTilt(); syncViz(); });
+    on(document, "visibilitychange", () => {
+      pageActive = !document.hidden;
+      resetTilt();
+      updateProgress();
+      syncViz();
+    });
+    on(window, "pagehide", () => { pageActive = false; resetTilt(); stopViz(); });
+    on(window, "pageshow", () => { pageActive = !document.hidden; updateProgress(); syncViz(); });
+
+    setTrack(idx);
   };
 
   // ---------- init ----------
   const init = () => {
-    renderLinks();
+    // Links are in HTML so they are visible and usable before JavaScript runs.
 
-    const moodBtns = $$("[data-mood-btn]");
+    const moodBtns = moodButtons;
     for (let i = 0; i < moodBtns.length; i++) {
       const b = moodBtns[i];
       on(b, "click", () => setMood(b.dataset.moodBtn));
     }
-    setMood(storage.getItem("mood") || "sweet");
+    setMood(storage.getItem("mood"), false);
     createHearts();
 
     on($("#ideaBtn"), "click", () => {
@@ -484,8 +556,7 @@ const createHearts = () => {
 
     on($("#copyLineBtn"), "click", async () => {
       const line = pick(OPENERS);
-      await copyText(line);
-      toast("已复制：去发给TA");
+      if (await copyText(line)) toast("已复制：去发给TA");
     });
 
     const funTitle = $("#funTitle");
@@ -508,8 +579,8 @@ const createHearts = () => {
     });
 
     on($("#funCopyBtn"), "click", async () => {
-      await copyText(`${funState.t}\n${funState.s}`);
-      toast("已复制：去发给TA");
+      if (!funState.t) { toast("先抽一个问题或挑战吧"); return; }
+      if (await copyText(`${funState.t}\n${funState.s}`)) toast("已复制：去发给TA");
     });
 
     createMusic();

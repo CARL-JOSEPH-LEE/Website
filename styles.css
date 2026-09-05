@@ -15,20 +15,18 @@
   --r: 22px;
   --r2: 16px;
 
-  --energy: 0;
-  --kick: 0;
 }
 
 /* 主题色：同时驱动背景和细节 */
-body[data-mood="sweet"]{
+:root[data-mood="sweet"]{
   --bg0:#1b0614; --bg1:#3b1027;
   --a1:#ffb3d7; --a2:#ff6fb1; --a3:#ffd3f0;
 }
-body[data-mood="cool"]{
+:root[data-mood="cool"]{
   --bg0:#05051d; --bg1:#140a38;
   --a1:#c77dff; --a2:#7c5cff; --a3:#00e5ff;
 }
-body[data-mood="soft"]{
+:root[data-mood="soft"]{
   --bg0:#02181b; --bg1:#02313b;
   --a1:#9ff3ff; --a2:#61dafb; --a3:#b9ffea;
 }
@@ -37,6 +35,7 @@ body[data-mood="soft"]{
 html,body{ height:100%; }
 a{ color:inherit; text-decoration:none; }
 button{ font:inherit; }
+button:focus-visible, a:focus-visible{ outline:2px solid var(--a1); outline-offset:3px; }
 
 /* 静态“流彩”背景：多层渐变，无动画 */
 body{
@@ -60,13 +59,6 @@ body{
   background-attachment: fixed;
   overflow-x:hidden;
 }
-
-/* 彻底停用 FX Canvas（保留 DOM，不再渲染） */
-.fxCanvas{
-  display:none !important;
-}
-
-/* 不再使用 body::before / ::after 动画背景，直接删除 */
 
 /* 布局 */
 .wrap{
@@ -144,7 +136,9 @@ body{
   border-color: rgba(255,255,255,.36);
   box-shadow: var(--shadow-soft);
 }
-.pill[aria-pressed="true"]{
+:root[data-mood="sweet"] .pill[data-mood-btn="sweet"],
+:root[data-mood="cool"] .pill[data-mood-btn="cool"],
+:root[data-mood="soft"] .pill[data-mood-btn="soft"]{
   color: rgba(255,255,255,.98);
   border-color: rgba(255,255,255,.9);
   background: linear-gradient(120deg,
@@ -292,7 +286,7 @@ body{
 
 /* 副标题区域 */
 .headRow{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
-.h2{ font-weight:900; font-size:16px; }
+.h2{ margin:0; font-weight:900; font-size:16px; }
 .h2sub{ color:var(--muted2); font-size:12px; margin-top:4px; }
 
 /* tag 带阴影 */
@@ -352,6 +346,12 @@ body{
   overflow:hidden;
   box-shadow: var(--shadow-subtle);
 }
+.ico img{
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
 .ico span{
   font-size:12px;
   font-weight:900;
@@ -385,10 +385,7 @@ body{
   gap:10px;
   overflow: hidden;
 
-  transform: translateX(-50%) perspective(900px)
-    rotateX(var(--tiltX, 0deg))
-    rotateY(var(--tiltY, 0deg))
-    scale(calc(1 + var(--kick) * .02));
+  transform: translateX(-50%) perspective(900px);
   box-shadow: var(--shadow-strong);
   transition: transform .12s ease, border-color .18s ease, box-shadow .18s ease;
   border-color: rgba(255,255,255,.26);
@@ -405,6 +402,7 @@ body{
   gap:10px;
 }
 .track .name{
+  flex-shrink:0;
   font-size:13px;
   font-weight:900;
   white-space:nowrap;
@@ -416,75 +414,65 @@ body{
 /* EQ */
 .eq{
   width: 200px;
+  min-width:0;
   height: 42px;
   display:flex;
   align-items:flex-end;
   gap:0.5px;
   opacity:.92;
 
-  --b0: 20%;  --b1: 35%;  --b2: 55%;  --b3: 30%;  --b4: 18%;
-  --b5: 40%;  --b6: 25%;  --b7: 45%;  --b8: 30%;  --b9: 50%;
-  --b10: 20%; --b11: 35%; --b12: 25%; --b13: 45%; --b14: 30%;
-  --b15: 55%; --b16: 20%; --b17: 40%; --b18: 35%; --b19: 50%;
-  --b20: 22%; --b21: 38%; --b22: 28%; --b23: 42%;
-  --b24: 33%; --b25: 27%; --b26: 44%; --b27: 39%; --b28: 16%;
-  --b29: 51%; --b30: 23%; --b31: 37%;
+  contain: layout;
 }
 
 .eq i{
   display:block;
   width: 4px;
-  height: 20%;
+  height: 100%;
+  transform-origin: center bottom;
+  transform: scaleY(var(--level, .2));
   border-radius: 999px;
 
-  background: linear-gradient(180deg,
-    rgba(255,255,255,.98),
-    color-mix(in oklab, var(--a1) 80%, rgba(255,255,255,.3)),
-    color-mix(in oklab, var(--a2) 80%, rgba(255,255,255,.3)),
-    color-mix(in oklab, var(--a3) 80%, rgba(255,255,255,.3)));
+  background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, var(--bar-color, var(--a1)) 80%, rgba(255,255,255,.3)));
 
-  box-shadow: 0 0 calc(4px + var(--energy) * 20px) rgba(255,255,255,.12);
-  transition: height .02s linear, opacity .08s ease;
+  box-shadow: 0 0 4px rgba(255,255,255,.12);
+  transition: transform .06s linear, opacity .08s ease;
   opacity: .65;
 }
 
 body.is-playing .eq i{
   opacity: .98;
   filter: saturate(1.25);
+  box-shadow: 0 0 10px rgba(255,255,255,.12);
 }
 
-.eq i:nth-child(1){ height: var(--b0); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #ff9ac9 80%, rgba(255,255,255,.3))); }
-.eq i:nth-child(2){ height: var(--b1); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #ff6fb1 80%, rgba(255,255,255,.3))); }
-.eq i:nth-child(3){ height: var(--b2); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #ffd3f0 80%, rgba(255,255,255,.3))); }
-.eq i:nth-child(4){ height: var(--b3); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #c77dff 80%, rgba(255,255,255,.3))); }
-.eq i:nth-child(5){ height: var(--b4); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #7c5cff 80%, rgba(255,255,255,.3))); }
-.eq i:nth-child(6){ height: var(--b5); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #00e5ff 80%, rgba(255,255,255,.3))); }
-.eq i:nth-child(7){ height: var(--b6); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #9ff3ff 80%, rgba(255,255,255,.3))); }
-.eq i:nth-child(8){ height: var(--b7); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #61dafb 80%, rgba(255,255,255,.3))); }
-.eq i:nth-child(9){ height: var(--b8); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #b9ffea 80%, rgba(255,255,255,.3))); }
-.eq i:nth-child(10){ height: var(--b9); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #ff9ac9 80%, rgba(255,255,255,.3))); }
-.eq i:nth-child(11){ height: var(--b10); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #ff6fb1 80%, rgba(255,255,255,.3))); }
-.eq i:nth-child(12){ height: var(--b11); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #ffd3f0 80%, rgba(255,255,255,.3))); }
-.eq i:nth-child(13){ height: var(--b12); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #c77dff 80%, rgba(255,255,255,.3))); }
-.eq i:nth-child(14){ height: var(--b13); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #7c5cff 80%, rgba(255,255,255,.3))); }
-.eq i:nth-child(15){ height: var(--b14); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #00e5ff 80%, rgba(255,255,255,.3))); }
-.eq i:nth-child(16){ height: var(--b15); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #9ff3ff 80%, rgba(255,255,255,.3))); }
-.eq i:nth-child(17){ height: var(--b16); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #61dafb 80%, rgba(255,255,255,.3))); }
-.eq i:nth-child(18){ height: var(--b17); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #b9ffea 80%, rgba(255,255,255,.3))); }
-.eq i:nth-child(19){ height: var(--b18); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #ff9ac9 80%, rgba(255,255,255,.3))); }
-.eq i:nth-child(20){ height: var(--b19); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #ff6fb1 80%, rgba(255,255,255,.3))); }
-.eq i:nth-child(21){ height: var(--b20); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #ffd3f0 80%, rgba(255,255,255,.3))); }
-.eq i:nth-child(22){ height: var(--b21); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #c77dff 80%, rgba(255,255,255,.3))); }
-.eq i:nth-child(23){ height: var(--b22); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #7c5cff 80%, rgba(255,255,255,.3))); }
-.eq i:nth-child(24){ height: var(--b23); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #00e5ff 80%, rgba(255,255,255,.3))); }
-.eq i:nth-child(25){ height: var(--b24); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #ff9ac9 80%, rgba(255,255,255,.3))); }
-.eq i:nth-child(26){ height: var(--b25); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #ff6fb1 80%, rgba(255,255,255,.3))); }
-.eq i:nth-child(27){ height: var(--b26); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #ffd3f0 80%, rgba(255,255,255,.3))); }
-.eq i:nth-child(28){ height: var(--b27); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #c77dff 80%, rgba(255,255,255,.3))); }
-.eq i:nth-child(29){ height: var(--b28); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #7c5cff 80%, rgba(255,255,255,.3))); }
-.eq i:nth-child(30){ height: var(--b29); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #00e5ff 80%, rgba(255,255,255,.3))); }
-.eq i:nth-child(31){ height: var(--b30); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #9ff3ff 80%, rgba(255,255,255,.3))); }
-.eq i:nth-child(32){ height: var(--b31); background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, #61dafb 80%, rgba(255,255,255,.3))); }
+.eq i:nth-child(1){ --level:0.2; --bar-color:#ff9ac9; }
+.eq i:nth-child(2){ --level:0.35; --bar-color:#ff6fb1; }
+.eq i:nth-child(3){ --level:0.55; --bar-color:#ffd3f0; }
+.eq i:nth-child(4){ --level:0.3; --bar-color:#c77dff; }
+.eq i:nth-child(5){ --level:0.18; --bar-color:#7c5cff; }
+.eq i:nth-child(6){ --level:0.4; --bar-color:#00e5ff; }
+.eq i:nth-child(7){ --level:0.25; --bar-color:#9ff3ff; }
+.eq i:nth-child(8){ --level:0.45; --bar-color:#61dafb; }
+.eq i:nth-child(9){ --level:0.3; --bar-color:#b9ffea; }
+.eq i:nth-child(10){ --level:0.5; --bar-color:#ff9ac9; }
+.eq i:nth-child(11){ --level:0.2; --bar-color:#ff6fb1; }
+.eq i:nth-child(12){ --level:0.35; --bar-color:#ffd3f0; }
+.eq i:nth-child(13){ --level:0.25; --bar-color:#c77dff; }
+.eq i:nth-child(14){ --level:0.45; --bar-color:#7c5cff; }
+.eq i:nth-child(15){ --level:0.3; --bar-color:#00e5ff; }
+.eq i:nth-child(16){ --level:0.55; --bar-color:#9ff3ff; }
+.eq i:nth-child(17){ --level:0.2; --bar-color:#61dafb; }
+.eq i:nth-child(18){ --level:0.4; --bar-color:#b9ffea; }
+.eq i:nth-child(19){ --level:0.35; --bar-color:#ff9ac9; }
+.eq i:nth-child(20){ --level:0.5; --bar-color:#ff6fb1; }
+.eq i:nth-child(21){ --level:0.22; --bar-color:#ffd3f0; }
+.eq i:nth-child(22){ --level:0.38; --bar-color:#c77dff; }
+.eq i:nth-child(23){ --level:0.28; --bar-color:#7c5cff; }
+.eq i:nth-child(24){ --level:0.42; --bar-color:#00e5ff; }
+.eq i:nth-child(25){ --level:0.33; --bar-color:#ff9ac9; }
+.eq i:nth-child(26){ --level:0.27; --bar-color:#ff6fb1; }
+.eq i:nth-child(27){ --level:0.44; --bar-color:#ffd3f0; }
+.eq i:nth-child(28){ --level:0.39; --bar-color:#c77dff; }
 
 /* 进度条：静态渐变，没有流动动画 */
 .bar{
@@ -501,9 +489,11 @@ body.is-playing .eq i{
 .bar > i{
   display:block;
   height:100%;
-  width:0%;
+  width:100%;
   border-radius:999px;
-  transition: width .2s linear;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform .2s linear;
 }
 #progress{
   background: linear-gradient(90deg, var(--a1), var(--a2), var(--a3), var(--a1));
@@ -534,6 +524,8 @@ body.is-playing .eq i{
 
 /* 主播放键：静态光泽 */
 #musicToggle{
+  --energy: 0;
+  --kick: 0;
   position: relative;
   width: 54px;
   height: 54px;
@@ -601,7 +593,7 @@ body.is-playing .eq i{
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 1;           /* 在背景之上、内容之下：你如果需要，可调成 0 或 2 */
+  z-index: 1;
   overflow: hidden;
 }
 
@@ -613,7 +605,7 @@ body.is-playing .eq i{
   line-height: 1;
   filter: none;          /* 明确避免多余 filter */
   text-shadow: none;
-  will-change: transform, opacity;
+  will-change: transform;
   animation-name: heartFall;
   animation-timing-function: linear;
   animation-iteration-count: infinite;
@@ -636,6 +628,8 @@ body.is-playing .eq i{
   }
 }
 
+.heartsLayer.is-paused .heartDrop{ animation-play-state: paused; }
+
 /* 如果系统要求减少动画，完全关掉爱心层 */
 @media (prefers-reduced-motion: reduce){
   .heartsLayer{
@@ -646,5 +640,5 @@ body.is-playing .eq i{
 
 /* 降低动画模式：仍然保留基本布局，去掉微动画 */
 @media (prefers-reduced-motion: reduce){
-  *{ animation:none !important; transition:none !important; }
+  *, *::before, *::after{ animation:none !important; transition:none !important; }
 }

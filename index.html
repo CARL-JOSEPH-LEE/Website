@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-mood="sweet">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
@@ -7,7 +7,15 @@
   <meta name="theme-color" content="#050412" />
 
   <title>DJCARL｜李忠恕的小宇宙</title>
-  <link rel="icon" href="star.jpg" type="image/jpeg" />
+  <script>
+    // Restore the palette before CSS paints, even while app.js is downloading.
+    try {
+      const mood = localStorage.getItem("mood");
+      if (["sweet", "cool", "soft"].includes(mood)) document.documentElement.dataset.mood = mood;
+    } catch {}
+  </script>
+  <link rel="icon" href="assets/favicon.png" type="image/png" sizes="64x64" />
+  <link rel="preload" href="assets/avatar.webp" as="image" fetchpriority="high" />
   <link rel="stylesheet" href="styles.css" />
   <script defer src="app.js"></script>
 </head>
@@ -15,15 +23,13 @@
 <body data-mood="sweet">
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-  <canvas id="fxCanvas" class="fxCanvas" aria-hidden="true"></canvas>
-
   <main class="wrap">
     <header class="topbar">
       <div class="topbarInner">
         <div class="brand" role="banner">
           <div class="avatarWrap" aria-hidden="true">
             <div class="avatarRing"></div>
-            <div class="avatar" style="background-image:url('star.jpg')"></div>
+            <div class="avatar" style="background-image:url('assets/avatar.webp')"></div>
           </div>
           <div class="brandTitle">
             <strong>DJCARL / 李忠恕 / CARL JOSEPH LEE / 中恕</strong>
@@ -65,7 +71,7 @@
           </div>
 
           <div class="mini" id="ideaBox">
-            <div class="left">
+            <div class="left" role="status" aria-atomic="true">
               <div class="label">今天我们可以一起去：</div>
               <div class="big" id="ideaTitle"></div>
               <div class="idea" id="ideaSub"></div>
@@ -79,10 +85,43 @@
           <div class="inner">
             <div class="headRow">
               <div>
-                <div class="h2">我的链接</div>
+                <h2 class="h2">我的链接</h2>
               </div>
             </div>
-            <div id="linksGrid" class="linksGrid" aria-label="链接列表"></div>
+            <div id="linksGrid" class="linksGrid" aria-label="链接列表">
+              <a class="linkCard" href="https://github.com/CARL-JOSEPH-LEE" target="_blank" rel="noopener noreferrer">
+                <div class="ico"><img src="assets/github.webp" width="28" height="28" alt="" decoding="async" loading="lazy" /></div>
+                <div class="linkMeta"><p class="t">GitHub</p><p class="d">@CARL-JOSEPH-LEE</p></div>
+              </a>
+              <a class="linkCard" href="https://twitter.com/CarlJosephLee1" target="_blank" rel="noopener noreferrer">
+                <div class="ico"><img src="assets/twitter.webp" width="28" height="28" alt="" decoding="async" loading="lazy" /></div>
+                <div class="linkMeta"><p class="t">Twitter</p><p class="d">@CarlJosephLee1</p></div>
+              </a>
+              <a class="linkCard" href="https://www.luogu.com.cn/user/1230548" target="_blank" rel="noopener noreferrer">
+                <div class="ico"><img src="assets/lg.webp" width="28" height="28" alt="" decoding="async" loading="lazy" /></div>
+                <div class="linkMeta"><p class="t">洛谷</p><p class="d">算法 / 刷题</p></div>
+              </a>
+              <a class="linkCard" href="https://youtube.com/@carljosephlee9537" target="_blank" rel="noopener noreferrer">
+                <div class="ico"><img src="assets/youtube.webp" width="28" height="28" alt="" decoding="async" loading="lazy" /></div>
+                <div class="linkMeta"><p class="t">YouTube</p><p class="d">@carljosephlee9537</p></div>
+              </a>
+              <a class="linkCard" href="https://ac.nowcoder.com/acm/contest/profile/473495180" target="_blank" rel="noopener noreferrer">
+                <div class="ico"><img src="assets/nowcoder.webp" width="28" height="28" alt="" decoding="async" loading="lazy" /></div>
+                <div class="linkMeta"><p class="t">牛客</p><p class="d">竞赛 / 训练</p></div>
+              </a>
+              <a class="linkCard" href="https://osu.ppy.sh/users/32702900/fruits" target="_blank" rel="noopener noreferrer">
+                <div class="ico"><img src="assets/osu.webp" width="28" height="28" alt="" decoding="async" loading="lazy" /></div>
+                <div class="linkMeta"><p class="t">osu</p><p class="d">硬核音游</p></div>
+              </a>
+              <a class="linkCard" href="https://ikeda.sapk.ch/player/19922191/24" target="_blank" rel="noopener noreferrer">
+                <div class="ico"><img src="assets/quehun.webp" width="28" height="28" alt="" decoding="async" loading="lazy" /></div>
+                <div class="linkMeta"><p class="t">雀魂</p><p class="d">日麻/二次元</p></div>
+              </a>
+              <a class="linkCard" href="https://dazigo.vip/personal-page/results?id=1721167720648589313" target="_blank" rel="noopener noreferrer">
+                <div class="ico"><img src="assets/dazigo.webp" width="28" height="28" alt="" decoding="async" loading="lazy" /></div>
+                <div class="linkMeta"><p class="t">打字狗</p><p class="d">盲打/竞速</p></div>
+              </a>
+            </div>
           </div>
         </article>
 
@@ -90,7 +129,7 @@
           <div class="inner">
             <div class="headRow">
               <div>
-                <div class="h2">心动小游戏</div>
+                <h2 class="h2">心动小游戏</h2>
                 <div class="h2sub">不油/好玩</div>
               </div>
               <div class="tag">🎲</div>
@@ -102,7 +141,7 @@
             </div>
 
             <div class="mini" id="funBox">
-              <div class="left">
+              <div class="left" role="status" aria-atomic="true">
                 <div class="label">本回合：</div>
                 <div class="big" id="funTitle"></div>
                 <div class="idea" id="funSub"></div>
@@ -120,7 +159,7 @@
   <div class="dock" id="musicDock" role="region" aria-label="音乐控制">
     <div class="dockLeft">
       <div class="track">
-        <div class="now" id="musicHint">音乐：点 ▶ 开始</div>
+        <div class="now" id="musicHint" role="status">音乐：点 ▶ 开始</div>
         <div class="trackRow">
           <div class="name" id="trackName">第 1 首</div>
           <div class="eq" id="eq" aria-hidden="true">
