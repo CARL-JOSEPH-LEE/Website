@@ -82,7 +82,7 @@ function instrument({ slowRAF = false } = {}) {
     await check('Startup loads no audio, creates no AudioContext and schedules no idle RAF', async () => {
       assert.equal(audioRequests.length, 0);
       assert.deepEqual(await page.evaluate(() => [document.querySelector('audio').getAttribute('src'), window.__audioContexts.length, window.__activeFrames.size]), [null, 0, 0]);
-      assert.equal(await page.locator('.linkCard').count(), 8);
+      assert.equal(await page.locator('.linkCard').count(), 9);
       assert.equal(await page.locator('.heartsLayer').getAttribute('aria-hidden'), 'true');
       assert.equal(await page.locator('#seekTrack').isDisabled(), true);
       assert(await page.locator('#toast').evaluate(el => !el.classList.contains('show')));
@@ -504,8 +504,8 @@ function instrument({ slowRAF = false } = {}) {
       const noJS = await newContext({ javaScriptEnabled: false });
       const p = await noJS.newPage();
       await p.goto(`${origin}/index.html`, { waitUntil: 'networkidle' });
-      assert.equal(await p.locator('.linkCard').count(), 8);
-      assert.equal(await p.locator('.ico img').count(), 8);
+      assert.equal(await p.locator('.linkCard').count(), 9);
+      assert.equal(await p.locator('.ico img').count(), 9);
       assert((await p.locator('.linkCard').first().getAttribute('href')).includes('github.com'));
       await noJS.close();
     });
