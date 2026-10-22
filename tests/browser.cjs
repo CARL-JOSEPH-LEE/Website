@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { chromium } = require('playwright');
+const { build } = require('../tools/build.cjs');
 const { startServer } = require('../tools/serve.cjs');
 const checks = [];
 const check = (name, fn) => fn().then(() => { checks.push(name); console.log(`PASS ${name}`); });
@@ -53,7 +54,10 @@ function instrument({ slowRAF = false } = {}) {
 }
 
 (async () => {
-  const { server, origin } = await startServer();
+  // Exercise the exact minified, hashed assets shipped to Netlify.
+  const root = path.join(__dirname, '../test-results/browser-build');
+  await build(root);
+  const { server, origin } = await startServer({ root, production: true });
   const browser = await chromium.launch({ executablePath: process.env.BROWSER_EXECUTABLE_PATH || undefined, headless: true, args: ['--mute-audio'] });
   const policyViolations = [];
   const errors = [];
@@ -247,6 +251,15 @@ function instrument({ slowRAF = false } = {}) {
       await buttonClick('#musicToggle');
       await playing();
       await page.waitForFunction(() => window.__audioContexts[0].state === 'running' && window.__activeFrames.size === 1);
+      // A queued error from a superseded resource has no current MediaError.
+      assert.equal(await page.locator('audio').evaluate(audio => audio.error), null);
+      const beforeStaleError = await page.locator('audio').evaluate(audio => {
+        const position = audio.currentTime;
+        audio.dispatchEvent(new Event('error'));
+        return position;
+      });
+      await page.waitForFunction(position => !document.querySelector('audio').paused && document.querySelector('audio').currentTime > position + .1, beforeStaleError);
+      assert.equal(await page.locator('#musicToggle').getAttribute('aria-pressed'), 'true');
       await buttonClick('#musicToggle');
     });
     await check('Random actions never repeat the immediately preceding result', async () => {
@@ -438,6 +451,26 @@ function instrument({ slowRAF = false } = {}) {
       assert(await p.locator('audio').evaluate(audio => !audio.muted && audio.volume === .37));
       await preferences.close();
     });
+    await check('Read-only device volume never overwrites the adjustable volume preference', async () => {
+      const deviceVolume = await newContext();
+      await deviceVolume.addInitScript(() => {
+        if (!/^https?:$/.test(location.protocol)) return;
+        localStorage.setItem('musicVolume', '0.37');
+        Object.defineProperty(HTMLMediaElement.prototype, 'volume', {
+          configurable: true, get() { return 1; }, set() {},
+        });
+      });
+      const p = await deviceVolume.newPage();
+      await p.goto(`${origin}/index.html`);
+      await p.locator('#trackName').click();
+      assert.equal(await p.locator('#musicVolume').isDisabled(), true);
+      await p.locator('#muteMusic').click();
+      assert.deepEqual(await p.evaluate(() => [localStorage.getItem('musicVolume'), localStorage.getItem('musicMuted')]), ['0.37', 'true']);
+      assert.equal(await p.locator('audio').evaluate(audio => audio.muted), true);
+      await p.locator('#muteMusic').click();
+      assert.equal(await p.evaluate(() => localStorage.getItem('musicVolume')), '0.37');
+      await deviceVolume.close();
+    });
     await check('Invalid and unavailable storage do not break interactions', async () => {
       await page.evaluate(() => {
         localStorage.setItem('mood', '__proto__');
@@ -529,7 +562,7 @@ function instrument({ slowRAF = false } = {}) {
         if (/^https?:$/.test(location.protocol)) localStorage.setItem('mood', 'soft');
       });
       const p = await cold.newPage();
-      await p.route('**/app.js', route => route.abort());
+      await p.route(/\/app(?:\.[a-f0-9]{12})?\.js$/, route => route.abort());
       await p.goto(`${origin}/index.html`, { waitUntil: 'networkidle' });
       assert.equal(await p.locator('html').getAttribute('data-mood'), 'soft');
       assert.equal(await p.locator('body').evaluate(el => getComputedStyle(el).getPropertyValue('--a1').trim()), '#9ff3ff');

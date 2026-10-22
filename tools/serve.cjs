@@ -1,6 +1,7 @@
 const http = require('node:http');
 const fsp = require('node:fs/promises');
 const path = require('node:path');
+const { pipeline } = require('node:stream/promises');
 const { securityPolicy, securityHeaders, cacheControl } = require('./build.cjs');
 const project = path.resolve(__dirname, '..');
 const mime = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.webp': 'image/webp', '.png': 'image/png', '.jpg': 'image/jpeg', '.mp3': 'audio/mpeg', '.txt': 'text/plain; charset=utf-8', '.xml': 'application/xml; charset=utf-8' };
@@ -107,14 +108,16 @@ async function startServer({ root = project, port = 0, production = false } = {}
       if (range === false) { res.writeHead(416, { ...headers, 'Content-Range': `bytes */${stat.size}` }).end(); return; }
       if (range) headers['Content-Range'] = `bytes ${range.start}-${range.end}/${stat.size}`;
       headers['Content-Length'] = range ? range.end - range.start + 1 : stat.size;
+      // A rapid seek/track change may abort while file I/O above is pending.
+      // Do not orphan a stream by attaching it after the response has closed.
+      if (res.destroyed) return;
       res.writeHead(range ? 206 : 200, headers);
       if (req.method === 'HEAD' || stat.size === 0) { res.end(); return; }
       // readFile() above advances the HTML descriptor; start must be explicit.
       const stream = handle.createReadStream({ start: range?.start ?? 0, end: range?.end });
-      handle = undefined; // The stream now owns and closes the descriptor.
-      res.on('close', () => stream.destroy());
-      stream.on('error', () => res.destroy());
-      stream.pipe(res);
+      // Keep the FileHandle alive and explicitly close it in finally on normal
+      // completion, stream errors and aborted requests alike.
+      await pipeline(stream, res);
     } catch (error) {
       if (res.headersSent) res.destroy();
       else res.writeHead(error.code === 'ENOENT' ? 404 : 500).end();

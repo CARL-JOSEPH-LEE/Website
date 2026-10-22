@@ -1,10 +1,10 @@
-# Netlify Drop users can upload dist/ directly; its generated _headers is self-contained.
-# These settings also prepare the same output for a future Git-connected deploy.
+# Pushes to GitHub main build and publish dist/ to 8sora8.com automatically.
+# Generated _headers also keeps a standalone dist/ deployment self-contained.
 [build]
   command = "node tools/build.cjs"
   publish = "dist"
 
 [build.environment]
   NODE_VERSION = "24"
-  # The build uses only Node built-ins. Playwright is needed only for local QA.
+  # Install the pinned esbuild build dependency; skip Playwright on Netlify.
   NODE_ENV = "production"

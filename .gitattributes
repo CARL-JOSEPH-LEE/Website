@@ -1,0 +1,9 @@
+# Keep content hashes reproducible across Windows and Netlify's Linux builds.
+* text=auto eol=lf
+
+# Never apply text conversion to media assets.
+*.mp3 binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary

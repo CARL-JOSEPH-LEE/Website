@@ -82,9 +82,11 @@ function netlifyHeaders(html, resources) {
 }
 
 async function build(outDir = path.join(project, 'dist')) {
+  // Build tooling stays out of the browser and the dependency-free dev server.
+  const { transform } = require('esbuild');
   // Overwrite only generated files. Never recursively delete a caller's directory.
   await fs.mkdir(path.join(outDir, 'assets'), { recursive: true });
-  let html = await fs.readFile(path.join(project, 'index.html'), 'utf8');
+  let html = (await fs.readFile(path.join(project, 'index.html'), 'utf8')).replace(/\r\n?/g, '\n');
   const previous = await fs.stat(path.join(outDir, 'index.html')).catch(error => { if (error.code !== 'ENOENT') throw error; });
   // One version stamp binds each compressed representation to its original.
   const stamp = new Date(Math.max(Date.now(), Math.ceil(previous?.mtimeMs || 0) + 1));
@@ -112,8 +114,22 @@ async function build(outDir = path.join(project, 'dist')) {
   }
   const rewriteAssets = text => { for (const [name, hashed] of names) text = text.replaceAll(name, hashed); return text; };
   for (const name of ['app.js', 'styles.css']) {
-    const source = await fs.readFile(path.join(project, name), 'utf8');
-    const data = Buffer.from(name.endsWith('.css') ? rewriteAssets(source) : source);
+    const javascript = name.endsWith('.js');
+    const source = (await fs.readFile(path.join(project, name), 'utf8')).replace(/\r\n?/g, '\n');
+    const optimized = await transform(javascript ? source : rewriteAssets(source), {
+      loader: javascript ? 'js' : 'css',
+      charset: 'utf8',
+      legalComments: 'none',
+      minifyWhitespace: true,
+      // Preserve CSS syntax, selector order and old-WebView fallbacks exactly.
+      // JavaScript is parsed and safely lowered; no runtime library is added.
+      ...(javascript ? {
+        target: ['chrome80', 'edge80', 'firefox78', 'safari13.1'],
+        minifyIdentifiers: true,
+        minifySyntax: true,
+      } : {}),
+    });
+    const data = Buffer.from(optimized.code);
     const hashed = fingerprint(name, data);
     names.set(name, hashed);
     await write(hashed, data, stamp);

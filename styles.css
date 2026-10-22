@@ -142,7 +142,14 @@
 }
 
 *{ box-sizing:border-box; }
-html{ min-height:100%; background-color:var(--bg1); }
+html{
+  min-height:100%;
+  background-color:var(--bg1);
+  /* Keep fixed-player text stable through mobile orientation changes while
+     preserving browser zoom and the user's chosen system font size. */
+  -webkit-text-size-adjust:100%;
+  text-size-adjust:100%;
+}
 body{ min-height:100vh; }
 a{ color:inherit; text-decoration:none; }
 button{ font:inherit; }
@@ -565,7 +572,9 @@ body::before{
 
 .eqCanvas{ display:none; position:absolute; top:0; right:0; bottom:0; left:0; inset:0; width:100%; height:100%; pointer-events:none; }
 .eq.is-canvas{ contain:layout paint; }
-.eq.is-canvas > i{ visibility:hidden; }
+/* The container has explicit dimensions: the fallback bars need no layout
+   boxes once the Canvas is ready. They return unchanged if Canvas is absent. */
+.eq.is-canvas > i{ display:none; }
 .eq.is-canvas .eqCanvas{
   display:block;
   /* Keep the changing 200 × 42 spectrum texture separate from the dock's
@@ -956,7 +965,9 @@ button:focus-visible, a:focus-visible, input:focus-visible{
 }
 #seekTrack:disabled{ cursor:default; }
 .bar:focus-within{ outline:2px solid var(--a1); outline-offset:4px; }
-.bar:hover #progress{ filter:brightness(1.18); }
+@media (hover:hover) and (pointer:fine){
+  .bar:hover #progress{ filter:brightness(1.18); }
+}
 html.playlist-open{ overflow:hidden; }
 @supports (scrollbar-gutter:stable){ html{ scrollbar-gutter:stable; } }
 .playlistShade{ position:fixed; top:0; right:0; bottom:0; left:0; z-index:39; background:rgba(3,3,12,.72); }
@@ -972,6 +983,7 @@ html.playlist-open{ overflow:hidden; }
   background:#0b0a1c; color:var(--txt);
   box-shadow:0 30px 90px rgba(0,0,0,.65);
   overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;
 }
 .playlistDialog:not([open]):not([data-open]){ display:none; }
 .playlistDialog[open], .playlistDialog[data-open]{ display:block; }
@@ -1023,7 +1035,7 @@ html.playlist-open{ overflow:hidden; }
 }
 .muteButton[aria-pressed="true"]{ color:var(--muted); }
 .volumeLabel{ color:var(--muted); font-size:11px; }
-#musicVolume{ flex:1; min-width:48px; height:24px; accent-color:var(--a1); cursor:pointer; }
+#musicVolume{ flex:1; min-width:48px; height:24px; accent-color:var(--a1); cursor:pointer; touch-action:pan-y; }
 #musicVolume:disabled{ opacity:.5; cursor:default; }
 .effectsSetting{
   display:flex; align-items:center; justify-content:space-between; position:relative;
@@ -1047,13 +1059,19 @@ html.playlist-open{ overflow:hidden; }
 #effectsToggle:focus-visible + .effectsSwitch{ outline:2px solid var(--a1); outline-offset:4px; }
 html[data-effects="off"] .heartsLayer{ display:none; }
 html[data-effects="off"] .chip::before,
-html[data-effects="off"] .btn::before,
-html[data-effects="off"] .pill::after,
+html[data-effects="off"] .btn.primary::after,
+html[data-effects="off"] .linkCard::after,
 html[data-effects="off"] #musicToggle::before,
 html[data-effects="off"] #musicToggle::after{ animation:none !important; opacity:0; }
 html[data-effects="off"] .linkCard,
 html[data-effects="off"] .card,
 html[data-effects="off"] .chip{ transform:none !important; }
+/* Older embedded browsers reject :focus-visible rules as a whole. Keep a
+   visible keyboard focus path, especially for the transparent switch input. */
+@supports not selector(:focus-visible){
+  button:focus, a:focus, input:focus{ outline:2px solid var(--a1); outline-offset:4px; }
+  #effectsToggle:focus + .effectsSwitch{ outline:2px solid var(--a1); outline-offset:4px; }
+}
 @media (max-width:360px){
   .playlistPanel{ padding:20px 16px; }
   .playlistHeading h2{ font-size:20px; }

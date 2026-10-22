@@ -282,29 +282,58 @@
     } catch { volumeSupported = false; }
     bgMusic.muted = storage.getItem("musicMuted") === "true";
 
-    const syncVolume = (persist = false) => {
+    let volumeSaveTimer = 0;
+    let savedVolumeValue = volumeSupported ? String(bgMusic.volume) : savedVolume;
+    let savedMutedValue = String(bgMusic.muted);
+    let previousVolumeValue = "";
+    let previousVolumeSupport = null;
+    let previousMutedState = null;
+    const persistVolume = () => {
+      clearTimeout(volumeSaveTimer);
+      volumeSaveTimer = 0;
+      const volume = String(bgMusic.volume), muted = String(bgMusic.muted);
+      // On iOS the read-only device volume must not replace the user's saved
+      // adjustable volume. Avoid duplicate synchronous writes from input/change.
+      if (volumeSupported && volume !== savedVolumeValue) {
+        storage.setItem("musicVolume", volume);
+        savedVolumeValue = volume;
+      }
+      if (muted !== savedMutedValue) {
+        storage.setItem("musicMuted", muted);
+        savedMutedValue = muted;
+      }
+    };
+    const queueVolumeSave = () => {
+      if ((!volumeSupported || String(bgMusic.volume) === savedVolumeValue) && String(bgMusic.muted) === savedMutedValue) return;
+      clearTimeout(volumeSaveTimer);
+      volumeSaveTimer = setTimeout(persistVolume, 120);
+    };
+    const syncVolume = () => {
       const volume = bgMusic.volume;
       if (volume > 0) lastAudibleVolume = volume;
+      const value = String(volume);
       if (volumeControl) {
-        volumeControl.value = String(volume);
-        volumeControl.disabled = !volumeSupported;
-        volumeControl.setAttribute("aria-valuetext", `${Math.round(volume * 100)}%`);
-        if (!volumeSupported) {
-          volumeControl.setAttribute("aria-label", "请使用设备音量键调节音量");
-          volumeControl.title = "请使用设备音量键调节音量";
+        if (value !== previousVolumeValue) {
+          if (volumeControl.value !== value) volumeControl.value = value;
+          volumeControl.setAttribute("aria-valuetext", `${Math.round(volume * 100)}%`);
+        }
+        if (volumeSupported !== previousVolumeSupport) {
+          volumeControl.disabled = !volumeSupported;
+          volumeControl.setAttribute("aria-label", volumeSupported ? "音量" : "请使用设备音量键调节音量");
+          if (volumeSupported) volumeControl.removeAttribute("title");
+          else volumeControl.title = "请使用设备音量键调节音量";
+          if (volumeHint) volumeHint.textContent = volumeSupported ? "音量" : "请使用设备音量键";
         }
       }
-      if (volumeHint && !volumeSupported) volumeHint.textContent = "请使用设备音量键";
       const muted = bgMusic.muted || volume === 0;
-      if (muteBtn) {
+      if (muteBtn && muted !== previousMutedState) {
         muteBtn.textContent = muted ? "取消静音" : "静音";
         muteBtn.setAttribute("aria-label", muted ? "取消静音" : "静音");
         muteBtn.setAttribute("aria-pressed", String(muted));
       }
-      if (persist) {
-        storage.setItem("musicVolume", String(volume));
-        storage.setItem("musicMuted", String(bgMusic.muted));
-      }
+      previousVolumeValue = value;
+      previousVolumeSupport = volumeSupported;
+      previousMutedState = muted;
     };
     on(volumeControl, "input", () => {
       const value = Number(volumeControl.value);
@@ -316,8 +345,10 @@
       } catch { volumeSupported = false; }
       if (!volumeSupported) toast("请使用设备音量键调节音量");
       else bgMusic.muted = false;
-      syncVolume(true);
+      syncVolume();
     });
+    // A continuous drag updates audio immediately; persist its final value once.
+    on(volumeControl, "change", persistVolume);
     on(muteBtn, "click", () => {
       if (bgMusic.muted || bgMusic.volume === 0) {
         if (bgMusic.volume === 0) {
@@ -325,9 +356,12 @@
         }
         bgMusic.muted = false;
       } else bgMusic.muted = true;
-      syncVolume(true);
+      syncVolume();
+      persistVolume();
     });
-    on(bgMusic, "volumechange", () => syncVolume(true));
+    on(bgMusic, "volumechange", () => { syncVolume(); queueVolumeSave(); });
+    on(window, "pagehide", persistVolume);
+    on(document, "visibilitychange", () => { if (document.hidden) persistVolume(); });
     syncVolume();
 
     const setHint = text => { if (hint && hint.textContent !== text) hint.textContent = text; };
@@ -456,6 +490,16 @@
     let spectrumFloor = 0, spectrumTravel = 0, spectrumStep = 0, spectrumBarWidth = 0;
     const columnPositions = new Float64Array(bars.length);
     const particleColumns = [5, 11, 16, 22];
+    const setSpectrumSize = (width, height) => {
+      if (width === spectrumWidth && height === spectrumHeight) return;
+      spectrumWidth = width; spectrumHeight = height; spectrumDirty = true;
+    };
+    const measureSpectrum = () => {
+      // A tilted dock changes getBoundingClientRect without changing the Canvas
+      // content box. Measure layout dimensions so the texture stays sharp.
+      const style = window.getComputedStyle(eqEl);
+      setSpectrumSize(Number.parseFloat(style.width) || eqEl.clientWidth, Number.parseFloat(style.height) || eqEl.clientHeight);
+    };
 
     const prepareSpectrum = () => {
       if (canvasUnavailable || !eqEl) return false;
@@ -466,18 +510,14 @@
         spectrumContext = spectrumCanvas.getContext("2d");
         if (!spectrumContext) { canvasUnavailable = true; return false; }
         eqEl.appendChild(spectrumCanvas);
-        const bounds = eqEl.getBoundingClientRect();
-        spectrumWidth = bounds.width; spectrumHeight = bounds.height;
+        measureSpectrum();
         if (window.ResizeObserver) {
           new ResizeObserver(entries => {
             const box = entries[0].contentRect;
-            spectrumWidth = box.width; spectrumHeight = box.height; spectrumDirty = true;
+            setSpectrumSize(box.width, box.height);
           }).observe(eqEl);
         } else {
-          on(window, "resize", () => {
-            const box = eqEl.getBoundingClientRect();
-            spectrumWidth = box.width; spectrumHeight = box.height; spectrumDirty = true;
-          }, { passive: true });
+          on(window, "resize", measureSpectrum, { passive: true });
         }
       }
       const dpr = Math.min(window.devicePixelRatio || 1, constrainedDevice || !finePointerQuery.matches ? 1.5 : 2);
@@ -784,7 +824,7 @@
       const releaseBlend = 1 - Math.exp(-dt / (reducedMotion ? 95 : 65));
 
       for (let i = 0; i < bars.length; i++) {
-        const { start, end } = bands[i];
+        const start = bands[i].start, end = bands[i].end;
         let sum = 0, peak = 0;
         for (let bin = start; bin < end; bin++) { const value = freq[bin]; sum += value; if (value > peak) peak = value; }
         const value = (sum / (end - start) * 0.65 + peak * 0.35) / 255;
@@ -1101,7 +1141,11 @@
       if (wantsPlayback) setTrack(idx + 1, true);
       else { setPlayingUI(false); updateProgress(); }
     });
-    on(bgMusic, "error", failPlayback);
+    on(bgMusic, "error", () => {
+      // load() clears MediaError when a new track supersedes an old resource.
+      // A queued event must not turn that healthy replacement into a failure.
+      if (bgMusic.error && sourceIndex === idx) failPlayback();
+    });
 
     // Tilt reads its bounds once on entry, then coalesces pointer writes per frame.
     let tiltRAF = 0;

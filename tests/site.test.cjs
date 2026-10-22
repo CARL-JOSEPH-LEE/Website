@@ -123,7 +123,7 @@ test('Published assets, compression, caching and audio streaming', async t => {
       assert.deepEqual(raw.data, original);
     }
     // Includes seeking, playlist, volume, Media Session, accessible controls and
-    // audio-reactive effects. No third-party build or runtime bundle is needed.
+    // audio-reactive effects. No third-party runtime bundle is shipped.
     const transferBudget = 28 * 1024;
     assert(manifest.text.brotliBytes < transferBudget, `Brotli text budget exceeded: ${manifest.text.brotliBytes} / ${transferBudget} bytes`);
   });
