@@ -1,0 +1,10 @@
+# Netlify Drop users can upload dist/ directly; its generated _headers is self-contained.
+# These settings also prepare the same output for a future Git-connected deploy.
+[build]
+  command = "node tools/build.cjs"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "24"
+  # The build uses only Node built-ins. Playwright is needed only for local QA.
+  NODE_ENV = "production"

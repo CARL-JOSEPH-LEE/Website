@@ -2,9 +2,28 @@
 <html lang="zh-CN" data-mood="sweet">
 <head>
   <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'sha256-PzZp7UzNRB+k1o5/TO0YXKXEs0rT6n5qHAgkqgNrL/Y=' 'sha256-nQT5uD2wF8xgOGOHEf22YV79uqNOr1HB9sC6nrqyv60='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="description" content="DJCARL 的小宇宙：心动、好看、好玩、好听。来认识我。" />
   <meta name="theme-color" content="#050412" />
+  <meta name="color-scheme" content="dark" />
+  <link rel="canonical" href="https://8sora8.com/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="zh_CN" />
+  <meta property="og:site_name" content="DJCARL · 小宇宙" />
+  <meta property="og:title" content="DJCARL｜认识我，不需要很久" />
+  <meta property="og:description" content="好玩、好看、好听，会一点浪漫。听一首歌，从一个共同话题开始。" />
+  <meta property="og:url" content="https://8sora8.com/" />
+  <meta property="og:image" content="https://8sora8.com/assets/share-card.jpg" />
+  <meta property="og:image:type" content="image/jpeg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="DJCARL 小宇宙，认识我，不需要很久" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="DJCARL｜认识我，不需要很久" />
+  <meta name="twitter:description" content="好玩 · 好看 · 好听 · 会一点浪漫" />
+  <meta name="twitter:image" content="https://8sora8.com/assets/share-card.jpg" />
 
   <title>DJCARL｜李忠恕的小宇宙</title>
   <script>
@@ -18,18 +37,22 @@
   <link rel="preload" href="assets/avatar.webp" as="image" fetchpriority="high" />
   <link rel="stylesheet" href="styles.css" />
   <script defer src="app.js"></script>
+  <script type="application/ld+json">
+    {"@context":"https://schema.org","@graph":[{"@type":"WebSite","@id":"https://8sora8.com/#website","url":"https://8sora8.com/","name":"DJCARL · 小宇宙","inLanguage":"zh-CN","author":{"@id":"https://8sora8.com/#person"}},{"@type":"Person","@id":"https://8sora8.com/#person","name":"李忠恕","alternateName":["DJCARL","CARL JOSEPH LEE","中恕"],"url":"https://8sora8.com/","sameAs":["https://github.com/CARL-JOSEPH-LEE","https://twitter.com/CarlJosephLee1","https://www.luogu.com.cn/user/1230548","https://youtube.com/@carljosephlee9537","https://ac.nowcoder.com/acm/contest/profile/473495180","https://osu.ppy.sh/users/32702900/fruits","https://ikeda.sapk.ch/player/19922191/24","https://dazigo.vip/personal-page/results?id=1721167720648589313"]}]}
+  </script>
 </head>
 
 <body data-mood="sweet">
-  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <a class="skipLink" href="#homeContent">跳到主页内容</a>
+  <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
   <main class="wrap">
-    <header class="topbar">
+    <header class="topbar" role="banner">
       <div class="topbarInner">
-        <div class="brand" role="banner">
+        <div class="brand" title="DJCARL / 李忠恕 / CARL JOSEPH LEE / 中恕">
           <div class="avatarWrap" aria-hidden="true">
             <div class="avatarRing"></div>
-            <div class="avatar" style="background-image:url('assets/avatar.webp')"></div>
+            <div class="avatar"></div>
           </div>
           <div class="brandTitle">
             <strong>DJCARL / 李忠恕 / CARL JOSEPH LEE / 中恕</strong>
@@ -38,14 +61,14 @@
         </div>
 
         <div class="mood" aria-label="心情主题">
-          <button class="pill" data-mood-btn="sweet" aria-pressed="true"  title="粉甜">甜 · Pink</button>
-          <button class="pill" data-mood-btn="cool"  aria-pressed="false" title="紫夜">酷 · Purple</button>
-          <button class="pill" data-mood-btn="soft"  aria-pressed="false" title="蓝绿">柔 · Cyan</button>
+          <button class="pill" type="button" data-mood-btn="sweet" aria-pressed="true" title="粉甜主题">甜 · Pink</button>
+          <button class="pill" type="button" data-mood-btn="cool" aria-pressed="false" title="紫夜主题">酷 · Purple</button>
+          <button class="pill" type="button" data-mood-btn="soft" aria-pressed="false" title="蓝绿主题">柔 · Cyan</button>
         </div>
       </div>
     </header>
 
-    <section class="grid" aria-label="主页内容">
+    <section class="grid" id="homeContent" tabindex="-1" aria-label="主页内容">
       <article class="card">
         <div class="inner">
           <div class="eyebrow"><i class="spark" aria-hidden="true"></i><span>欢迎来到我的小宇宙</span></div>
@@ -74,7 +97,7 @@
           <div class="mini" id="ideaBox">
             <div class="left" role="status" aria-atomic="true">
               <div class="label">今天我们可以一起去：</div>
-              <div class="big" id="ideaTitle"></div>
+              <div class="big" id="ideaTitle" data-placeholder="点一下，看看今天的灵感"></div>
               <div class="idea" id="ideaSub"></div>
             </div>
           </div>
@@ -144,7 +167,7 @@
             <div class="mini" id="funBox">
               <div class="left" role="status" aria-atomic="true">
                 <div class="label">本回合：</div>
-                <div class="big" id="funTitle"></div>
+                <div class="big" id="funTitle" data-placeholder="抽一个问题，开始这次聊天"></div>
                 <div class="idea" id="funSub"></div>
               </div>
               <button class="btn ghost" id="funCopyBtn" type="button">📋 复制|发给我</button>
@@ -154,7 +177,7 @@
       </aside>
     </section>
 
-    <footer class="footer">© 2024–2026 DJCARL. 祝你每天都有一点点心动。</footer>
+    <footer class="footer"><span class="footerSignature">© 2024–2026 DJCARL. 祝你每天都有一点点心动。</span></footer>
   </main>
 
   <div class="dock" id="musicDock" role="region" aria-label="音乐控制">
@@ -162,7 +185,7 @@
       <div class="track">
         <div class="now" id="musicHint" role="status">音乐：点 ▶ 开始</div>
         <div class="trackRow">
-          <div class="name" id="trackName">第 1 首</div>
+          <button class="name" id="trackName" type="button" aria-haspopup="dialog" aria-controls="playlistDialog" aria-expanded="false" title="打开歌单与播放设置">第 1 首</button>
           <div class="eq" id="eq" data-state="idle" aria-hidden="true">
             <i></i><i></i><i></i><i></i><i></i>
             <i></i><i></i><i></i><i></i><i></i>
@@ -172,14 +195,14 @@
             <i></i><i></i><i></i>
           </div>
         </div>
-        <div class="bar" aria-hidden="true"><i id="progress"></i></div>
+        <div class="bar"><i id="progress" aria-hidden="true"></i><input id="seekTrack" type="range" min="0" max="1000" step="1" value="0" aria-label="播放进度" aria-valuetext="播放音乐后可调整进度" disabled /></div>
       </div>
     </div>
 
     <div class="dockBtns">
       <button class="iconBtn" id="musicToggle" type="button" title="播放/暂停" aria-label="播放/暂停">
         <svg id="iconPlay" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
-        <svg id="iconPause" viewBox="0 0 24 24" aria-hidden="true" style="display:none;"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>
+        <svg id="iconPause" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>
       </button>
       <button class="iconBtn" id="nextTrack" type="button" title="下一首" aria-label="下一首">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 6v12l10-6zm10 0h2v12h-2z"/></svg>
@@ -187,6 +210,26 @@
     </div>
   </div>
 
+  <div class="playlistShade" id="playlistShade" aria-hidden="true" hidden></div>
+  <dialog class="playlistDialog" id="playlistDialog" aria-labelledby="playlistTitle" aria-describedby="playlistDescription">
+    <div class="playlistPanel">
+      <div class="playlistHeading">
+        <div><p class="playlistEyebrow">DJCARL · 私藏电台</p><h2 id="playlistTitle">给此刻，选一首歌</h2></div>
+        <button class="dialogClose" id="closePlaylist" type="button" aria-label="关闭歌单" autofocus><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg></button>
+      </div>
+      <p class="playlistDescription" id="playlistDescription">11 首私藏，点击播放。让音乐陪你慢慢逛。</p>
+      <div class="playlistStatus"><span>当前进度</span><output id="trackTime" aria-live="off">00:00 / --:--</output></div>
+      <div class="playlistList" id="playlistList" role="group" aria-label="选择歌曲"></div>
+      <div class="playerPreferences">
+        <div class="volumeSetting">
+          <button class="muteButton" id="muteMusic" type="button" aria-pressed="false" aria-label="静音">静音</button>
+          <label class="volumeLabel" id="volumeHint" for="musicVolume">音量</label>
+          <input id="musicVolume" type="range" min="0" max="1" step="0.01" value="0.9" aria-label="音量" />
+        </div>
+        <label class="effectsSetting" for="effectsToggle"><span><strong>氛围动效</strong><small>爱心、光环与轻微倾斜</small></span><input id="effectsToggle" type="checkbox" checked /><span class="effectsSwitch" aria-hidden="true"></span></label>
+      </div>
+    </div>
+  </dialog>
   <audio id="bgMusic" preload="none"></audio>
 </body>
 </html>

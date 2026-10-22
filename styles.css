@@ -1,6 +1,6 @@
 :root{
-  --safeB: env(safe-area-inset-bottom, 0px);
-  --safeT: env(safe-area-inset-top, 0px);
+  --safeB: 0px;
+  --safeT: 0px;
 
   --card: rgba(255,255,255,.10);
   --stroke: rgba(255,255,255,.18);
@@ -17,56 +17,182 @@
 
 }
 
-/* 主题色：同时驱动背景和细节 */
+@supports (padding:env(safe-area-inset-bottom)){
+  :root{
+    --safeB:env(safe-area-inset-bottom, 0px);
+    --safeT:env(safe-area-inset-top, 0px);
+  }
+}
+
+/* 主题色：同时驱动背景和细节；预计算颜色兼容旧版内置浏览器。 */
 :root[data-mood="sweet"]{
   --bg0:#1b0614; --bg1:#3b1027;
   --a1:#ffb3d7; --a2:#ff6fb1; --a3:#ffd3f0;
+
+  --wash-a1:rgba(255,179,215,0.8);
+  --wash-a2:rgba(255,111,177,0.82);
+  --wash-a3:rgba(255,211,240,0.8);
+  --flow-a1:rgba(255,179,215,0.4);
+  --flow-a2:rgba(255,111,177,0.26);
+  --flow-a3:rgba(255,211,240,0.3);
+  --flow-end:rgba(255,179,215,0.32);
+  --ring-a1:rgba(255,179,215,0.7);
+  --ring-a2:rgba(255,111,177,0.7);
+  --ring-a3:rgba(255,211,240,0.7);
+  --pill-a1:rgba(108,81,109,0.9412);
+  --pill-a2:rgba(97,52,88,0.9674);
+  --card-a1:rgba(255,183,217,0.2745);
+  --card-a2:rgba(255,123,183,0.2157);
+  --card-a3:rgba(255,215,241,0.1961);
+  --title-a1:rgba(255,225,239,1);
+  --title-a2:rgba(255,206,226,1);
+  --button-a1:rgba(255,191,221,0.4729);
+  --button-a2:rgba(255,136,189,0.4253);
+  --button-a3:rgba(255,218,242,0.3549);
+  --play-ring:rgba(255,194,223,1);
+  --play-glow:rgba(255,111,177,0.55);
+  --heart-color:rgba(255,153,200,1);
 }
 :root[data-mood="cool"]{
   --bg0:#05051d; --bg1:#140a38;
   --a1:#c77dff; --a2:#7c5cff; --a3:#00e5ff;
+
+  --wash-a1:rgba(199,125,255,0.8);
+  --wash-a2:rgba(124,92,255,0.82);
+  --wash-a3:rgba(0,229,255,0.8);
+  --flow-a1:rgba(199,125,255,0.4);
+  --flow-a2:rgba(124,92,255,0.26);
+  --flow-a3:rgba(0,229,255,0.3);
+  --flow-end:rgba(199,125,255,0.32);
+  --ring-a1:rgba(199,125,255,0.7);
+  --ring-a2:rgba(124,92,255,0.7);
+  --ring-a3:rgba(0,229,255,0.7);
+  --pill-a1:rgba(88,60,123,0.9412);
+  --pill-a2:rgba(54,44,112,0.9674);
+  --card-a1:rgba(202,133,255,0.2745);
+  --card-a2:rgba(132,106,255,0.2157);
+  --card-a3:rgba(67,232,255,0.1961);
+  --title-a1:rgba(233,205,255,1);
+  --title-a2:rgba(202,200,255,1);
+  --button-a1:rgba(208,147,255,0.4729);
+  --button-a2:rgba(140,121,255,0.4253);
+  --button-a3:rgba(93,234,255,0.3549);
+  --play-ring:rgba(210,153,255,1);
+  --play-glow:rgba(124,92,255,0.55);
+  --heart-color:rgba(168,113,255,1);
 }
 :root[data-mood="soft"]{
   --bg0:#02181b; --bg1:#02313b;
   --a1:#9ff3ff; --a2:#61dafb; --a3:#b9ffea;
+
+  --wash-a1:rgba(159,243,255,0.8);
+  --wash-a2:rgba(97,218,251,0.82);
+  --wash-a3:rgba(185,255,234,0.8);
+  --flow-a1:rgba(159,243,255,0.4);
+  --flow-a2:rgba(97,218,251,0.26);
+  --flow-a3:rgba(185,255,234,0.3);
+  --flow-end:rgba(159,243,255,0.32);
+  --ring-a1:rgba(159,243,255,0.7);
+  --ring-a2:rgba(97,218,251,0.7);
+  --ring-a3:rgba(185,255,234,0.7);
+  --pill-a1:rgba(73,104,124,0.9412);
+  --pill-a2:rgba(48,84,111,0.9674);
+  --card-a1:rgba(165,244,255,0.2745);
+  --card-a2:rgba(112,221,251,0.2157);
+  --card-a3:rgba(191,255,236,0.1961);
+  --title-a1:rgba(219,251,255,1);
+  --title-a2:rgba(205,242,254,1);
+  --button-a1:rgba(176,245,255,0.4729);
+  --button-a2:rgba(128,224,252,0.4253);
+  --button-a3:rgba(197,255,237,0.3549);
+  --play-ring:rgba(180,246,255,1);
+  --play-glow:rgba(97,218,251,0.55);
+  --heart-color:rgba(136,233,254,1);
+}
+
+/* Progressive palette enhancement: older WebViews keep the precomputed sRGB
+   values above. Gate color-mix itself: var() can defer invalidation past a
+   normal fallback declaration and otherwise make gradient text disappear. */
+@supports (color:color-mix(in oklab, red, blue)){
+  :root[data-mood]{
+    --wash-a1:color-mix(in oklab, var(--a1) 80%, transparent);
+    --wash-a2:color-mix(in oklab, var(--a2) 82%, transparent);
+    --wash-a3:color-mix(in oklab, var(--a3) 80%, transparent);
+    --flow-a1:color-mix(in oklab, var(--a1) 40%, transparent);
+    --flow-a2:color-mix(in oklab, var(--a2) 26%, transparent);
+    --flow-a3:color-mix(in oklab, var(--a3) 30%, transparent);
+    --flow-end:color-mix(in oklab, var(--a1) 32%, transparent);
+    --ring-a1:color-mix(in oklab, var(--a1) 70%, transparent);
+    --ring-a2:color-mix(in oklab, var(--a2) 70%, transparent);
+    --ring-a3:color-mix(in oklab, var(--a3) 70%, transparent);
+    --pill-a1:color-mix(in oklab, var(--a1) 40%, rgba(18,18,40,.9));
+    --pill-a2:color-mix(in oklab, var(--a2) 36%, rgba(18,18,40,.95));
+    --card-a1:color-mix(in oklab, var(--a1) 26%, rgba(255,255,255,.02));
+    --card-a2:color-mix(in oklab, var(--a2) 20%, rgba(255,255,255,.02));
+    --card-a3:color-mix(in oklab, var(--a3) 18%, rgba(255,255,255,.02));
+    --title-a1:color-mix(in oklab, var(--a1) 40%, #fff);
+    --title-a2:color-mix(in oklab, var(--a2) 36%, #fff);
+    --button-a1:color-mix(in oklab, var(--a1) 40%, rgba(255,255,255,.12));
+    --button-a2:color-mix(in oklab, var(--a2) 36%, rgba(255,255,255,.1));
+    --button-a3:color-mix(in oklab, var(--a3) 30%, rgba(255,255,255,.08));
+    --play-ring:color-mix(in oklab, var(--a1) 80%, white);
+    --play-glow:color-mix(in oklab, var(--a2) 55%, transparent);
+    --heart-color:color-mix(in oklab, var(--a1) 60%, var(--a2) 40%);
+  }
 }
 
 *{ box-sizing:border-box; }
-html,body{ height:100%; }
+html{ min-height:100%; background-color:var(--bg1); }
+body{ min-height:100vh; }
 a{ color:inherit; text-decoration:none; }
 button{ font:inherit; }
 button:focus-visible, a:focus-visible{ outline:2px solid var(--a1); outline-offset:3px; }
 
-/* 静态“流彩”背景：多层渐变，无动画 */
+/* The page scrolls above one cached viewport background. Fixed attachment on
+   body otherwise couples these large gradients to scroll painting on WebViews. */
 body{
   margin:0;
   color:var(--txt);
   font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans SC",system-ui,Segoe UI,Roboto,Arial,sans-serif;
+  background:var(--bg1);
+  overflow-x:hidden;
+}
 
+body::before{
+  content:"";
+  position:fixed;
+  top:0; right:0; bottom:0; left:0; inset:0;
+  z-index:0;
+  pointer-events:none;
+  contain:strict;
+  /* Only this static, viewport-sized surface needs an explicit layer. */
+  transform:translateZ(0);
   background:
-    radial-gradient(1200px 900px at -10% -10%, color-mix(in oklab, var(--a1) 80%, transparent) 0%, transparent 62%),
-    radial-gradient(1200px 900px at 110% -10%, color-mix(in oklab, var(--a2) 82%, transparent) 0%, transparent 62%),
-    radial-gradient(1300px 900px at 50% 120%, color-mix(in oklab, var(--a3) 80%, transparent) 0%, transparent 60%),
+    radial-gradient(1200px 900px at -10% -10%, var(--wash-a1) 0%, transparent 62%),
+    radial-gradient(1200px 900px at 110% -10%, var(--wash-a2) 0%, transparent 62%),
+    radial-gradient(1300px 900px at 50% 120%, var(--wash-a3) 0%, transparent 60%),
     conic-gradient(
       from 220deg at 50% 35%,
-      color-mix(in oklab, var(--a1) 40%, transparent),
-      color-mix(in oklab, var(--a2) 26%, transparent),
-      color-mix(in oklab, var(--a3) 30%, transparent),
-      color-mix(in oklab, var(--a1) 32%, transparent)
+      var(--flow-a1),
+      var(--flow-a2),
+      var(--flow-a3),
+      var(--flow-end)
     ),
     linear-gradient(180deg, var(--bg0), var(--bg1));
-
-  background-attachment: fixed;
-  overflow-x:hidden;
+}
+@supports (height:100lvh){
+  /* Keep the cached texture stable while a mobile browser's toolbar moves. */
+  body::before{ bottom:auto; height:100lvh; }
 }
 
 /* 布局 */
 .wrap{
   position:relative;
   z-index:2;
+  width:92vw; max-width:980px;
   width:min(980px, 92vw);
   margin:0 auto;
-  padding: calc(22px + var(--safeT)) 0 calc(120px + var(--safeB));
+  padding: calc(22px + var(--safeT)) 0 calc(140px + var(--safeB));
 }
 
 .grid{
@@ -98,18 +224,19 @@ body{
 .brand{ display:flex; align-items:center; gap:10px; min-width:0; }
 .avatarWrap{ position:relative; width:40px; height:40px; flex:0 0 auto; }
 .avatarRing{
-  position:absolute; inset:-3px; border-radius:999px;
+  position:absolute; top:-3px; right:-3px; bottom:-3px; left:-3px; inset:-3px; border-radius:999px;
   background: conic-gradient(from 200deg,
-    color-mix(in oklab, var(--a1) 70%, transparent),
-    color-mix(in oklab, var(--a2) 70%, transparent),
-    color-mix(in oklab, var(--a3) 70%, transparent),
-    color-mix(in oklab, var(--a1) 70%, transparent));
+    var(--ring-a1),
+    var(--ring-a2),
+    var(--ring-a3),
+    var(--ring-a1));
   opacity:.9;
 }
 .avatar{
   width:40px; height:40px; border-radius:999px;
   border:1px solid rgba(255,255,255,.32);
   background: radial-gradient(circle at 20% 0%, rgba(255,255,255,.85), rgba(255,255,255,.05));
+  background-image:url('assets/avatar.webp');
   background-size:cover; background-position:center;
   box-shadow: var(--shadow-subtle);
 }
@@ -131,10 +258,12 @@ body{
   box-shadow: var(--shadow-subtle);
   transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease, color .18s ease, background .18s ease;
 }
-.pill:hover{
-  transform: translateY(-1px);
-  border-color: rgba(255,255,255,.36);
-  box-shadow: var(--shadow-soft);
+@media (hover: hover) and (pointer: fine){
+  .pill:hover{
+    transform: translateY(-1px);
+    border-color: rgba(255,255,255,.36);
+    box-shadow: var(--shadow-soft);
+  }
 }
 :root[data-mood="sweet"] .pill[data-mood-btn="sweet"],
 :root[data-mood="cool"] .pill[data-mood-btn="cool"],
@@ -142,8 +271,8 @@ body{
   color: rgba(255,255,255,.98);
   border-color: rgba(255,255,255,.9);
   background: linear-gradient(120deg,
-    color-mix(in oklab, var(--a1) 40%, rgba(18,18,40,.9)),
-    color-mix(in oklab, var(--a2) 36%, rgba(18,18,40,.95)));
+    var(--pill-a1),
+    var(--pill-a2));
 }
 
 /* 卡片 + 阴影 */
@@ -151,19 +280,19 @@ body{
   border-radius: var(--r);
   padding:1px;
   background: linear-gradient(135deg,
-    color-mix(in oklab, var(--a1) 26%, rgba(255,255,255,.02)),
-    color-mix(in oklab, var(--a2) 20%, rgba(255,255,255,.02)),
-    color-mix(in oklab, var(--a3) 18%, rgba(255,255,255,.02)));
+    var(--card-a1),
+    var(--card-a2),
+    var(--card-a3));
   box-shadow: var(--shadow-strong);
   position:relative;
   overflow:hidden;
 }
 .card::before{
   content:"";
-  position:absolute; inset:-40%;
-  background: radial-gradient(circle at 0 0, rgba(255,255,255,.28), transparent 65%);
+  position:absolute; top:0; right:0; bottom:0; left:0; inset:0;
+  /* Same gradient geometry as the oversized layer, within the card's bounds. */
+  background: radial-gradient(circle at -40% -40%, rgba(255,255,255,.28), transparent 83.5714286%);
   opacity:.16;
-  mix-blend-mode:screen;
   pointer-events:none;
 }
 .inner{
@@ -173,7 +302,9 @@ body{
   background: radial-gradient(circle at 0 0, rgba(255,255,255,.10), rgba(8,8,22,.92));
   padding:18px;
 }
-.card:hover{ transform: translateY(-1px); }
+@media (hover: hover) and (pointer: fine){
+  .card:hover{ transform: translateY(-1px); }
+}
 
 /* 文案 */
 .eyebrow{ display:flex; align-items:center; gap:10px; color:var(--muted); font-size:13px; }
@@ -182,12 +313,13 @@ body{
   background: radial-gradient(circle, rgba(255,255,255,.95), rgba(255,255,255,0));
 }
 .h1{
+  font-size:27px;
   font-size: clamp(27px, 3.8vw, 44px);
   line-height:1.08;
   margin: 10px 0 10px;
   background: linear-gradient(120deg,#fff,
-    color-mix(in oklab, var(--a1) 40%, #fff),
-    color-mix(in oklab, var(--a2) 36%, #fff));
+    var(--title-a1),
+    var(--title-a2));
   -webkit-background-clip:text; background-clip:text; color:transparent;
 }
 .sub{ color:var(--muted); font-size:14px; line-height:1.6; margin:0 0 14px; }
@@ -206,22 +338,23 @@ body{
     linear-gradient(rgba(10,10,40,.9), rgba(10,10,40,.78)) padding-box,
     linear-gradient(120deg, var(--a1), var(--a2), var(--a3)) border-box;
   overflow:hidden;
-  transform: translateZ(0);
   box-shadow: var(--shadow-subtle);
-  transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
+  transition: transform .18s ease, box-shadow .18s ease;
 }
 .chip::before{
   content:"";
-  position:absolute; inset:0;
+  position:absolute; top:0; right:0; bottom:0; left:0; inset:0;
   background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,.35) 20%, transparent 40%);
   transform: translateX(-120%);
   opacity:.9;
 }
-.chip:hover{
-  transform: translateY(-2px) rotate(-.6deg);
-  box-shadow: var(--shadow-soft);
+@media (hover: hover) and (pointer: fine){
+  .chip:hover{
+    transform: translateY(-2px) rotate(-.6deg);
+    box-shadow: var(--shadow-soft);
+  }
+  .chip:hover::before{ animation: sheen .7s ease forwards; }
 }
-.chip:hover::before{ animation: sheen .7s ease forwards; }
 
 /* 小范围动画，不影响背景性能 */
 @keyframes sheen{ to{ transform: translateX(120%); } }
@@ -243,11 +376,13 @@ body{
   display:inline-flex; align-items:center; justify-content:center; gap:8px;
   user-select:none;
 }
-.btn:hover{
-  transform: translateY(-1px);
-  border-color: rgba(255,255,255,.32);
-  box-shadow: var(--shadow-soft);
-  background: radial-gradient(circle at 0 0, rgba(255,255,255,.18), rgba(255,255,255,.04));
+@media (hover: hover) and (pointer: fine){
+  .btn:hover{
+    transform: translateY(-1px);
+    border-color: rgba(255,255,255,.32);
+    box-shadow: var(--shadow-soft);
+    background: radial-gradient(circle at 0 0, rgba(255,255,255,.18), rgba(255,255,255,.04));
+  }
 }
 .btn:active{
   transform: translateY(0) scale(.98);
@@ -256,9 +391,9 @@ body{
 .btn.primary{
   border: 1px solid rgba(255,255,255,.26);
   background: linear-gradient(90deg,
-    color-mix(in oklab, var(--a1) 40%, rgba(255,255,255,.12)),
-    color-mix(in oklab, var(--a2) 36%, rgba(255,255,255,.1)),
-    color-mix(in oklab, var(--a3) 30%, rgba(255,255,255,.08)));
+    var(--button-a1),
+    var(--button-a2),
+    var(--button-a3));
 }
 .btn.ghost{ background: rgba(5,5,30,.8); }
 
@@ -322,18 +457,20 @@ body{
 }
 .linkCard::after{
   content:"";
-  position:absolute; inset:0;
+  position:absolute; top:0; right:0; bottom:0; left:0; inset:0;
   background: radial-gradient(circle at 10% -10%, rgba(255,255,255,.35), transparent 55%);
   opacity:0;
   transition: opacity .2s ease;
-  mix-blend-mode:screen;
+  pointer-events:none;
 }
-.linkCard:hover{
-  transform: translateY(-2px);
-  border-color: rgba(255,255,255,.34);
-  box-shadow: var(--shadow-soft);
+@media (hover: hover) and (pointer: fine){
+  .linkCard:hover{
+    transform: translateY(-2px);
+    border-color: rgba(255,255,255,.34);
+    box-shadow: var(--shadow-soft);
+  }
+  .linkCard:hover::after{ opacity:.85; }
 }
-.linkCard:hover::after{ opacity:.85; }
 
 .ico{
   width:28px; height:28px; border-radius:10px;
@@ -371,6 +508,7 @@ body{
   position:fixed;
   left:50%;
   bottom: calc(16px + var(--safeB));
+  width:92vw; max-width:980px;
   width: min(980px, 92vw);
   z-index:10;
   border-radius:999px;
@@ -385,7 +523,7 @@ body{
   gap:10px;
   overflow: hidden;
 
-  transform: translateX(-50%) perspective(900px);
+  transform: translateX(-50%);
   box-shadow: var(--shadow-strong);
   transition: transform .12s ease, border-color .18s ease, box-shadow .18s ease;
   border-color: rgba(255,255,255,.26);
@@ -425,7 +563,8 @@ body{
   contain: layout;
 }
 
-.eqCanvas{ display:none; position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+.eqCanvas{ display:none; position:absolute; top:0; right:0; bottom:0; left:0; inset:0; width:100%; height:100%; pointer-events:none; }
+.eq.is-canvas{ contain:layout paint; }
 .eq.is-canvas > i{ visibility:hidden; }
 .eq.is-canvas .eqCanvas{ display:block; }
 
@@ -439,7 +578,7 @@ body{
   transform: scaleY(.055);
   border-radius: 999px;
 
-  background: linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, var(--bar-color, var(--a1)) 80%, rgba(255,255,255,.3)));
+  background: linear-gradient(180deg, rgba(255,255,255,.98), var(--bar-color, var(--a1)));
 
   box-shadow: 0 0 4px rgba(255,255,255,.12);
   transition: opacity .15s ease;
@@ -449,7 +588,16 @@ body{
 body.is-playing .eq i{
   opacity: .98;
   filter: saturate(1.4);
-  box-shadow: 0 0 9px color-mix(in oklab, var(--bar-color) 55%, transparent);
+  box-shadow: 0 0 9px var(--bar-color, var(--a1));
+}
+
+@supports (color:color-mix(in oklab, red, blue)){
+  .eq i{
+    background:linear-gradient(180deg, rgba(255,255,255,.98), color-mix(in oklab, var(--bar-color, var(--a1)) 80%, rgba(255,255,255,.3)));
+  }
+  body.is-playing .eq i{
+    box-shadow:0 0 9px color-mix(in oklab, var(--bar-color) 55%, transparent);
+  }
 }
 
 .eq[data-state="idle"] i{ transition:transform .32s cubic-bezier(.2,.65,.3,1), opacity .2s ease; }
@@ -485,6 +633,7 @@ body.is-playing .eq i{
 
 /* 进度条：静态渐变，没有流动动画 */
 .bar{
+  width:52vw; max-width:380px;
   width: min(380px, 52vw);
   background: rgba(255,255,255,.06);
   border-radius: 999px;
@@ -523,13 +672,16 @@ body.is-playing .eq i{
   position: relative;
   overflow: visible;
 }
-.iconBtn:hover{
-  transform: translateY(-1px);
-  border-color: rgba(255,255,255,.36);
-  box-shadow: var(--shadow-soft);
+@media (hover: hover) and (pointer: fine){
+  .iconBtn:hover{
+    transform: translateY(-1px);
+    border-color: rgba(255,255,255,.36);
+    box-shadow: var(--shadow-soft);
+  }
 }
 .iconBtn:active{ transform: translateY(0) scale(.96); box-shadow:none; }
 .iconBtn svg{ width:20px; height:20px; fill: rgba(255,255,255,.9); }
+#iconPause{ display:none; }
 
 /* 主播放键：静态光泽 */
 #musicToggle{
@@ -544,13 +696,12 @@ body.is-playing .eq i{
     radial-gradient(circle at 50% 60%, rgba(255,255,255,.22), rgba(0,0,0,0) 58%),
     linear-gradient(135deg, rgba(255,255,255,.16), rgba(0,0,0,0));
   box-shadow: var(--shadow-strong);
-  transform: translateZ(0);
 }
 
 #musicToggle::before{
   content:"";
   position:absolute;
-  inset:-16px;
+  top:-16px; right:-16px; bottom:-16px; left:-16px; inset:-16px;
   border-radius: 999px;
   background: conic-gradient(from 0deg,
     rgba(255,255,255,0),
@@ -569,13 +720,13 @@ body.is-playing .eq i{
 #musicToggle::after{
   content:"";
   position:absolute;
-  inset:-9px;
+  top:-9px; right:-9px; bottom:-9px; left:-9px; inset:-9px;
   border-radius:999px;
   background: radial-gradient(circle at 50% 50%,
     rgba(255,255,255,.65),
     rgba(255,255,255,0) 60%);
-  border:1px solid color-mix(in oklab, var(--a1) 80%, white);
-  box-shadow:0 0 12px color-mix(in oklab, var(--a2) 55%, transparent);
+  border:1px solid var(--play-ring);
+  box-shadow:0 0 12px var(--play-glow);
   opacity: calc(var(--kick) * .8);
   transform: scale(calc(1 + var(--kick) * .2));
   pointer-events:none;
@@ -607,10 +758,11 @@ body.is-playing .eq i{
 /* 轻量级从天而降爱心 --------------------------------- */
 .heartsLayer{
   position: fixed;
-  inset: 0;
+  top:0; right:0; bottom:0; left:0; inset:0;
   pointer-events: none;
   z-index: 1;
   overflow: hidden;
+  contain: strict;
 }
 
 /* 单个爱心：只有 transform + opacity 动画 */
@@ -621,11 +773,10 @@ body.is-playing .eq i{
   line-height: 1;
   filter: none;          /* 明确避免多余 filter */
   text-shadow: none;
-  will-change: transform;
   animation-name: heartFall;
   animation-timing-function: linear;
   animation-iteration-count: infinite;
-  color: color-mix(in oklab, var(--a1) 60%, var(--a2) 40%);
+  color: var(--heart-color);
   /* animation-duration / delay 由 JS 动态设置 */
 }
 
@@ -644,9 +795,286 @@ body.is-playing .eq i{
   }
 }
 
-.heartsLayer.is-paused .heartDrop{ animation-play-state: paused; }
+.heartsLayer.is-paused .heartDrop,
+html.is-scrolling .heartDrop{ animation-play-state: paused; }
+
+/* Only animate a shine in response to interaction; no idle repaint loop. */
+.card{ transition:transform .2s cubic-bezier(.2,.8,.2,1); }
+.btn.primary::after{
+  content:none;
+  position:absolute;
+  top:0; right:0; bottom:0; left:0;
+  border-radius:inherit;
+  background:linear-gradient(115deg, transparent 28%, rgba(255,255,255,.25) 48%, transparent 68%);
+  transform:translateX(-125%);
+  pointer-events:none;
+}
+@media (hover:hover) and (pointer:fine){
+  .btn.primary:hover{ position:relative; overflow:hidden; }
+  .btn.primary:hover::after{ content:""; animation:sheen .7s ease both; }
+}
+.btn.primary:focus-visible{ position:relative; overflow:hidden; }
+.btn.primary:focus-visible::after{ content:""; animation:sheen .7s ease both; }
+.pill:active{ transform:scale(.97); }
+.linkCard:active{ transform:translateY(0) scale(.985); }
+.dock.visual-active #musicToggle::before,
+.dock.visual-active #musicToggle::after{ will-change:transform,opacity; }
+
+/* Touch/trackpad scrolling has priority; decoration resumes at the same frame
+   after scrolling settles, without changing layout or interrupting music. */
+html.is-scrolling .chip::before,
+html.is-scrolling .btn.primary::after,
+html.is-scrolling .dock #musicToggle::before{ animation-play-state:paused; }
+html.is-scrolling .linkCard::after,
+html.is-scrolling .dock #musicToggle::before,
+html.is-scrolling .dock #musicToggle::after{
+  opacity:0;
+  transition:none;
+  will-change:auto;
+}
+html.is-scrolling .pill,
+html.is-scrolling .card,
+html.is-scrolling .chip,
+html.is-scrolling .btn,
+html.is-scrolling .linkCard,
+html.is-scrolling .iconBtn{ transition:none; }
+
+/* Keep legacy clipboard selection offscreen while allowing iOS selection. */
+.clipboardFallback{
+  position:fixed;
+  left:-9999px;
+  top:0;
+  width:1px;
+  height:1px;
+  padding:0;
+  border:0;
+  opacity:0;
+  pointer-events:none;
+  font-size:16px;
+}
+
+/* A one-time feature probe is more accurate than @supports(gap), because
+   older WebViews can support Grid gaps while ignoring gaps in Flexbox. */
+.gapProbe{
+  position:fixed;
+  left:-9999px;
+  top:0;
+  width:1px;
+  padding:0;
+  border:0;
+  visibility:hidden;
+  display:flex;
+  flex-direction:column;
+  row-gap:1px;
+}
+.gapProbe > i{ display:block; height:1px; min-height:1px; flex:none; }
+.no-flex-gap .topbarInner,
+.no-flex-gap .brand,
+.no-flex-gap .mood,
+.no-flex-gap .eyebrow,
+.no-flex-gap .chips,
+.no-flex-gap .ctaRow,
+.no-flex-gap .mini,
+.no-flex-gap .headRow,
+.no-flex-gap .linkCard,
+.no-flex-gap .dock,
+.no-flex-gap .dockLeft,
+.no-flex-gap .track,
+.no-flex-gap .trackRow,
+.no-flex-gap .eq,
+.no-flex-gap .dockBtns{ gap:0; }
+.no-flex-gap .topbarInner > * + *{ margin-left:12px; }
+.no-flex-gap .brand > * + *,
+.no-flex-gap .eyebrow > * + *,
+.no-flex-gap .headRow > * + *,
+.no-flex-gap .linkCard > * + *,
+.no-flex-gap .dock > * + *,
+.no-flex-gap .dockLeft > * + *,
+.no-flex-gap .trackRow > * + *{ margin-left:10px; }
+.no-flex-gap .mini > * + *{ margin-left:12px; }
+.no-flex-gap .dockBtns > * + *{ margin-left:8px; }
+.no-flex-gap .track > * + *{ margin-top:6px; }
+.no-flex-gap .eq > i + i{ margin-left:2px; }
+.no-flex-gap .mood{ margin:-4px -4px -4px 8px; }
+.no-flex-gap .mood > *{ margin:4px; }
+.no-flex-gap .chips{ margin:-5px -5px -5px; }
+.no-flex-gap .ctaRow{ margin:11px -5px -5px; }
+.no-flex-gap .chips > *,
+.no-flex-gap .ctaRow > *{ margin:5px; }
+@media (max-width:520px){
+  .no-flex-gap .ctaRow .btn{ width:calc(100% - 10px); }
+  .no-flex-gap .mini > * + *{ margin-left:0; margin-top:12px; }
+}
+
+@supports not ((background-clip:text) or (-webkit-background-clip:text)){
+  .h1{ color:var(--txt); background:none; }
+}
+
+@supports not (background:conic-gradient(red, blue)){
+  body::before{
+    background:
+      radial-gradient(1200px 900px at -10% -10%, var(--wash-a1) 0%, transparent 62%),
+      radial-gradient(1200px 900px at 110% -10%, var(--wash-a2) 0%, transparent 62%),
+      radial-gradient(1300px 900px at 50% 120%, var(--wash-a3) 0%, transparent 60%),
+      linear-gradient(180deg, var(--bg0), var(--bg1));
+  }
+  .avatarRing{ background:linear-gradient(135deg, var(--ring-a1), var(--ring-a2), var(--ring-a3)); }
+  #musicToggle::before{ background:linear-gradient(135deg, var(--a1), transparent, var(--a3)); }
+}
 
 /* Preserve the explicitly requested falling hearts in reduced-motion mode. */
 @media (prefers-reduced-motion: reduce){
   *:not(.heartDrop), *::before, *::after{ animation:none !important; transition:none !important; }
+  .dock{ transform:translateX(-50%) !important; }
+  .pill:hover, .pill:active, .card:hover, .chip:hover, .btn:hover, .btn:active,
+  .linkCard:hover, .linkCard:active, .iconBtn:hover, .iconBtn:active{ transform:none; }
 }
+
+/* Product refinements keep the existing grid, palette and type scale intact. */
+button, a, input{ -webkit-tap-highlight-color:transparent; }
+button, a{ touch-action:manipulation; }
+button:focus-visible, a:focus-visible, input:focus-visible{
+  outline:2px solid var(--a1);
+  outline-offset:4px;
+}
+.skipLink{
+  position:fixed; left:16px; top:12px; z-index:100;
+  padding:12px 18px; border-radius:14px;
+  background:#101025; color:#fff; border:1px solid var(--a1);
+  transform:translateY(-160%);
+}
+.skipLink:focus{ transform:translateY(0); }
+#homeContent:focus{ outline:none; }
+.pill{ position:relative; }
+.pill::before{ content:""; position:absolute; top:-4px; right:0; bottom:-4px; left:0; }
+.big:empty::before{
+  content:attr(data-placeholder); color:var(--muted); font-size:13px; font-weight:500;
+}
+.footer{ opacity:1; color:rgba(255,255,255,.86); line-height:1.6; }
+.footerSignature{
+  display:inline-block; padding:7px 12px; border-radius:999px;
+  background:rgba(5,4,18,.66); border:1px solid rgba(255,255,255,.1);
+}
+.track .name{
+  appearance:none; -webkit-appearance:none;
+  background:transparent; color:inherit; border:0; padding:0;
+  line-height:normal; text-align:left; cursor:pointer;
+}
+.track .name::after{ content:"⌄"; margin-left:6px; color:var(--a1); }
+.track .name:hover{ color:var(--a1); }
+.bar{ position:relative; overflow:visible; }
+#progress{ pointer-events:none; }
+#seekTrack{
+  position:absolute; top:-13px; left:0; width:100%; height:36px;
+  margin:0; padding:0; opacity:0; cursor:pointer;
+  touch-action:pan-y;
+}
+#seekTrack:disabled{ cursor:default; }
+.bar:focus-within{ outline:2px solid var(--a1); outline-offset:4px; }
+.bar:hover #progress{ filter:brightness(1.18); }
+html.playlist-open{ overflow:hidden; }
+@supports (scrollbar-gutter:stable){ html{ scrollbar-gutter:stable; } }
+.playlistShade{ position:fixed; top:0; right:0; bottom:0; left:0; z-index:39; background:rgba(3,3,12,.72); }
+.playlistShade[hidden]{ display:none; }
+
+/* A native modal provides focus isolation; data-open is the legacy fallback. */
+.playlistDialog{
+  position:fixed; top:0; right:0; bottom:0; left:0;
+  box-sizing:border-box; margin:auto; padding:0;
+  width:calc(100% - 32px); max-width:460px;
+  max-height:calc(100% - 48px); overflow:auto;
+  border:1px solid rgba(255,255,255,.24); border-radius:26px;
+  background:#0b0a1c; color:var(--txt);
+  box-shadow:0 30px 90px rgba(0,0,0,.65);
+  overscroll-behavior:contain;
+}
+.playlistDialog:not([open]):not([data-open]){ display:none; }
+.playlistDialog[open], .playlistDialog[data-open]{ display:block; }
+.playlistDialog::backdrop{ background:rgba(3,3,12,.72); }
+.playlistDialog[data-open]{ z-index:40; }
+.playlistPanel{
+  padding:24px;
+  background:radial-gradient(ellipse at 0 0, var(--pill-a1), transparent 65%), #0b0a1c;
+}
+.playlistHeading{ display:flex; justify-content:space-between; align-items:center; gap:16px; }
+.playlistEyebrow{ margin:0 0 8px; font-size:10px; letter-spacing:2px; font-weight:700; color:var(--a1); }
+.playlistHeading h2{ margin:0; font-size:22px; font-weight:800; letter-spacing:-.5px; line-height:1.3; }
+.dialogClose{
+  flex:0 0 auto; width:40px; height:40px; padding:10px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  border-radius:999px; border:1px solid rgba(255,255,255,.18);
+  background:rgba(255,255,255,.06); color:var(--txt);
+}
+.dialogClose svg{ width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.5; stroke-linecap:round; }
+.dialogClose:hover{ background:rgba(255,255,255,.14); }
+.playlistDescription{ font-size:12px; line-height:1.7; color:var(--muted); margin:14px 0 18px; }
+.playlistStatus{
+  display:flex; align-items:center; justify-content:space-between;
+  color:var(--muted); font-size:11px; padding-bottom:12px;
+}
+#trackTime{ font-variant-numeric:tabular-nums; color:var(--a1); }
+.playlistList{
+  display:grid; grid-template-columns:1fr 1fr; gap:8px;
+  padding-bottom:18px; border-bottom:1px solid rgba(255,255,255,.12);
+}
+.playlistTrack{
+  appearance:none; -webkit-appearance:none; min-height:44px;
+  padding:11px 14px; border-radius:12px; border:1px solid rgba(255,255,255,.12);
+  background:rgba(6,6,20,.48); color:var(--muted); font-size:13px;
+  text-align:left; cursor:pointer;
+  transition:background .16s ease, border-color .16s ease, transform .16s ease;
+}
+.playlistTrack:hover, .playlistTrack:focus-visible{ background:rgba(255,255,255,.08); color:#fff; }
+.playlistTrack.is-current{
+  background:linear-gradient(120deg, var(--pill-a1), var(--pill-a2));
+  border-color:var(--a1); color:#fff; font-weight:700;
+}
+.playlistTrack.is-current::after{ content:" · 当前"; font-size:10px; opacity:.7; }
+.playerPreferences{ padding-top:18px; }
+.volumeSetting{ display:flex; gap:12px; align-items:center; min-height:36px; }
+.muteButton{
+  padding:8px 0; min-width:52px; border:0; background:transparent;
+  color:var(--a1); font-size:12px; font-weight:700; cursor:pointer;
+}
+.muteButton[aria-pressed="true"]{ color:var(--muted); }
+.volumeLabel{ color:var(--muted); font-size:11px; }
+#musicVolume{ flex:1; min-width:48px; height:24px; accent-color:var(--a1); cursor:pointer; }
+#musicVolume:disabled{ opacity:.5; cursor:default; }
+.effectsSetting{
+  display:flex; align-items:center; justify-content:space-between; position:relative;
+  gap:12px; padding-top:16px; margin-top:12px; border-top:1px solid rgba(255,255,255,.1);
+  cursor:pointer;
+}
+.effectsSetting strong{ display:block; font-size:13px; font-weight:600; }
+.effectsSetting small{ display:block; font-size:11px; color:var(--muted); margin-top:5px; }
+#effectsToggle{ position:absolute; right:0; width:40px; height:40px; opacity:0; cursor:pointer; }
+.effectsSwitch{
+  flex:0 0 auto; width:38px; height:22px; padding:3px; border-radius:999px;
+  border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.12);
+  transition:background .18s ease;
+}
+.effectsSwitch::after{
+  content:""; display:block; width:14px; height:14px; border-radius:50%; background:#fff;
+  transform:translateX(0); transition:transform .18s ease;
+}
+#effectsToggle:checked + .effectsSwitch{ background:var(--a2); }
+#effectsToggle:checked + .effectsSwitch::after{ transform:translateX(16px); }
+#effectsToggle:focus-visible + .effectsSwitch{ outline:2px solid var(--a1); outline-offset:4px; }
+html[data-effects="off"] .heartsLayer{ display:none; }
+html[data-effects="off"] .chip::before,
+html[data-effects="off"] .btn::before,
+html[data-effects="off"] .pill::after,
+html[data-effects="off"] #musicToggle::before,
+html[data-effects="off"] #musicToggle::after{ animation:none !important; opacity:0; }
+html[data-effects="off"] .linkCard,
+html[data-effects="off"] .card,
+html[data-effects="off"] .chip{ transform:none !important; }
+@media (max-width:360px){
+  .playlistPanel{ padding:20px 16px; }
+  .playlistHeading h2{ font-size:20px; }
+  .volumeSetting{ gap:8px; }
+}
+@media (prefers-reduced-motion:no-preference){
+  .playlistDialog[open], .playlistDialog[data-open]{ animation:playlistEnter .2s ease-out; }
+}
+@keyframes playlistEnter{ from{ transform:translateY(8px) scale(.985); } to{ transform:none; } }

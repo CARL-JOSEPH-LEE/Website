@@ -4,7 +4,12 @@
   // ---------- tiny utils ----------
   const $ = (s, p = document) => p.querySelector(s);
   const $$ = (s, p = document) => Array.from(p.querySelectorAll(s));
-  const on = (el, type, fn, opt) => el && el.addEventListener(type, fn, opt);
+  const on = (el, type, fn, opt) => {
+    if (!el) return;
+    if (typeof el.addEventListener === "function") el.addEventListener(type, fn, opt);
+    // Older Safari/WebViews expose MediaQueryList.addListener instead.
+    else if (type === "change" && typeof el.addListener === "function") el.addListener(fn);
+  };
   const lastPicks = new WeakMap();
   const pick = (arr) => {
     if (arr.length < 2) return arr[0];
@@ -81,12 +86,15 @@
     cool:  "切到「酷 · 紫夜」",
     soft:  "切到「柔 · 蓝绿」",
   };
+  const moodThemeColors = { sweet: "#1b0614", cool: "#05051d", soft: "#02181b" };
+  const themeColorMeta = $('meta[name="theme-color"]');
 
   const moodButtons = $$("[data-mood-btn]");
   const setMood = (value, announce = true) => {
-    const m = Object.hasOwn(moodMsg, value) ? value : "sweet";
+    const m = Object.prototype.hasOwnProperty.call(moodMsg, value) ? value : "sweet";
     document.documentElement.dataset.mood = m;
     document.body.dataset.mood = m;
+    if (themeColorMeta) themeColorMeta.setAttribute("content", moodThemeColors[m]);
     storage.setItem("mood", m);
     const btns = moodButtons;
     for (let i = 0; i < btns.length; i++) {
@@ -101,15 +109,105 @@
     try {
       await navigator.clipboard.writeText(text);
       return true;
-    } catch {
-      prompt("复制这段：", text);
-      return false;
+    } catch {}
+    // Some in-app browsers do not expose the async clipboard API. Keep the
+    // legacy selection path as a user-gesture fallback, then offer manual copy.
+    const field = document.createElement("textarea");
+    const focused = document.activeElement;
+    const selection = window.getSelection();
+    const ranges = [];
+    if (selection) for (let i = 0; i < selection.rangeCount; i++) ranges.push(selection.getRangeAt(i).cloneRange());
+    const scrollX = window.scrollX, scrollY = window.scrollY;
+    field.className = "clipboardFallback";
+    field.value = text;
+    field.setAttribute("readonly", "");
+    field.setAttribute("aria-hidden", "true");
+    document.body.appendChild(field);
+    let copied = false;
+    try {
+      field.select();
+      field.setSelectionRange(0, text.length);
+      copied = typeof document.execCommand === "function" && document.execCommand("copy");
+    } catch {}
+    finally {
+      field.remove();
+      if (focused && typeof focused.focus === "function") focused.focus({ preventScroll: true });
+      if (selection) {
+        selection.removeAllRanges();
+        for (const range of ranges) selection.addRange(range);
+      }
+      if (window.scrollX !== scrollX || window.scrollY !== scrollY) window.scrollTo(scrollX, scrollY);
     }
+    if (!copied) prompt("复制这段：", text);
+    return copied;
+  };
+
+  const detectFlexGap = () => {
+    const probe = document.createElement("div");
+    probe.className = "gapProbe";
+    probe.setAttribute("aria-hidden", "true");
+    probe.appendChild(document.createElement("i"));
+    probe.appendChild(document.createElement("i"));
+    document.body.appendChild(probe);
+    document.documentElement.classList.toggle("no-flex-gap", probe.scrollHeight !== 3);
+    probe.remove();
   };
 
   // ---------- falling hearts: compositor animations, viewport-sized budget ----------
   const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
   const finePointerQuery = window.matchMedia("(hover: hover) and (pointer: fine)");
+  const constrainedDevice = !!((navigator.connection && navigator.connection.saveData)
+    || (navigator.hardwareConcurrency > 0 && navigator.hardwareConcurrency <= 4)
+    || (navigator.deviceMemory > 0 && navigator.deviceMemory <= 4));
+  let effectsEnabled = storage.getItem("effects") !== "off";
+  let isScrolling = false;
+
+  // Scroll owns the frame budget. Only its start/end changes styles; the hot
+  // handler reads no layout and uses one idle timer throughout a gesture.
+  const setupScrollPerformance = () => {
+    let idleTimer = 0;
+    let lastScroll = 0;
+    const settle = () => {
+      const remaining = 180 - (performance.now() - lastScroll);
+      if (remaining > 0) { idleTimer = setTimeout(settle, remaining); return; }
+      idleTimer = 0;
+      if (!isScrolling) return;
+      isScrolling = false;
+      document.documentElement.classList.remove("is-scrolling");
+      document.dispatchEvent(new Event("scrollstatechange"));
+    };
+    on(window, "scroll", () => {
+      if (document.hidden) return;
+      lastScroll = performance.now();
+      if (isScrolling) return;
+      isScrolling = true;
+      document.documentElement.classList.add("is-scrolling");
+      document.dispatchEvent(new Event("scrollstatechange"));
+      idleTimer = setTimeout(settle, 180);
+    }, { passive: true, capture: true });
+    on(window, "pagehide", () => {
+      clearTimeout(idleTimer);
+      idleTimer = 0;
+      isScrolling = false;
+      document.documentElement.classList.remove("is-scrolling");
+    });
+  };
+
+  const setupEffects = () => {
+    const toggle = $("#effectsToggle");
+    const apply = (enabled, announce = false) => {
+      effectsEnabled = enabled;
+      document.documentElement.dataset.effects = enabled ? "on" : "off";
+      if (toggle) toggle.checked = enabled;
+      if (announce) {
+        storage.setItem("effects", enabled ? "on" : "off");
+        document.dispatchEvent(new Event("effectschange"));
+        toast(enabled ? "装饰动效已开启" : "装饰动效已关闭，音乐频谱保留");
+      }
+    };
+    apply(effectsEnabled);
+    on(toggle, "change", () => apply(toggle.checked, true));
+  };
 
   const createHearts = () => {
     const layer = document.createElement("div");
@@ -120,13 +218,15 @@
     let pageActive = !document.hidden;
 
     const sync = () => {
-      layer.classList.toggle("is-paused", !pageActive);
-      if (!pageActive) return;
+      layer.classList.toggle("is-paused", !pageActive || !effectsEnabled);
+      if (!pageActive || !effectsEnabled) return;
 
       const compact = !finePointerQuery.matches;
-      const lowPower = navigator.connection?.saveData || (navigator.hardwareConcurrency > 0 && navigator.hardwareConcurrency <= 4);
-      const density = Math.round(window.innerWidth * window.innerHeight / 13000);
-      const count = clamp(Math.round(density * (lowPower ? 0.65 : 1)), compact ? 18 : 36, compact ? 40 : 100);
+      // Emoji layers cost physical pixels as well as nodes. A modest density
+      // retains the falling-heart field without dozens of full-rate GPU layers.
+      const pixelCost = Math.sqrt(Math.min(window.devicePixelRatio || 1, 3));
+      const density = window.innerWidth * window.innerHeight / (20000 * pixelCost);
+      const count = clamp(Math.round(density * (constrainedDevice ? 0.65 : 1)), compact ? 12 : 20, compact ? 24 : (constrainedDevice ? 36 : 56));
       while (layer.childElementCount > count) layer.lastElementChild.remove();
       const fragment = document.createDocumentFragment();
       for (let i = layer.childElementCount; i < count; i++) {
@@ -154,6 +254,7 @@
     });
     on(window, "pageshow", () => { pageActive = !document.hidden; sync(); });
     on(finePointerQuery, "change", sync);
+    on(document, "effectschange", sync);
     sync();
   };
 
@@ -165,6 +266,15 @@
     const trackName = $("#trackName");
     const hint = $("#musicHint");
     const progress = $("#progress");
+    const seekTrack = $("#seekTrack");
+    const trackTime = $("#trackTime");
+    const playlistDialog = $("#playlistDialog");
+    const playlistShade = $("#playlistShade");
+    const playlistList = $("#playlistList");
+    const closePlaylistBtn = $("#closePlaylist");
+    const volumeControl = $("#musicVolume");
+    const volumeHint = $("#volumeHint");
+    const muteBtn = $("#muteMusic");
     const iconPlay = $("#iconPlay");
     const iconPause = $("#iconPause");
     const dock = $("#musicDock");
@@ -181,10 +291,76 @@
     let interrupted = false;
     let buffering = false;
     let pageActive = !document.hidden;
+    let scrubbing = false;
+    let playlistOpen = false;
+    let nativeModal = false;
+    let fallbackSiblings = [];
+    const playlistButtons = [];
+    const mediaSession = "mediaSession" in navigator ? navigator.mediaSession : null;
 
     // No src, metadata request, AudioContext or decoding until the user plays.
     bgMusic.preload = "none";
-    bgMusic.volume = 0.9;
+    const savedVolume = storage.getItem("musicVolume");
+    const parsedVolume = savedVolume === null ? NaN : Number(savedVolume);
+    const initialVolume = Number.isFinite(parsedVolume) && parsedVolume >= 0 && parsedVolume <= 1 ? parsedVolume : 0.9;
+    let lastAudibleVolume = initialVolume > 0 ? initialVolume : 0.9;
+    let volumeSupported = true;
+    try {
+      // iOS can expose a writable-looking volume property that always reads 1.
+      // Probe before any source exists, including when the saved preference is 1.
+      bgMusic.volume = 0.5;
+      volumeSupported = Math.abs(bgMusic.volume - 0.5) < 0.005;
+      bgMusic.volume = initialVolume;
+    } catch { volumeSupported = false; }
+    bgMusic.muted = storage.getItem("musicMuted") === "true";
+
+    const syncVolume = (persist = false) => {
+      const volume = bgMusic.volume;
+      if (volume > 0) lastAudibleVolume = volume;
+      if (volumeControl) {
+        volumeControl.value = String(volume);
+        volumeControl.disabled = !volumeSupported;
+        volumeControl.setAttribute("aria-valuetext", `${Math.round(volume * 100)}%`);
+        if (!volumeSupported) {
+          volumeControl.setAttribute("aria-label", "请使用设备音量键调节音量");
+          volumeControl.title = "请使用设备音量键调节音量";
+        }
+      }
+      if (volumeHint && !volumeSupported) volumeHint.textContent = "请使用设备音量键";
+      const muted = bgMusic.muted || volume === 0;
+      if (muteBtn) {
+        muteBtn.textContent = muted ? "取消静音" : "静音";
+        muteBtn.setAttribute("aria-label", muted ? "取消静音" : "静音");
+        muteBtn.setAttribute("aria-pressed", String(muted));
+      }
+      if (persist) {
+        storage.setItem("musicVolume", String(volume));
+        storage.setItem("musicMuted", String(bgMusic.muted));
+      }
+    };
+    on(volumeControl, "input", () => {
+      const value = Number(volumeControl.value);
+      if (!Number.isFinite(value)) return;
+      const requested = clamp(value, 0, 1);
+      try {
+        bgMusic.volume = requested;
+        volumeSupported = Math.abs(bgMusic.volume - requested) < 0.005;
+      } catch { volumeSupported = false; }
+      if (!volumeSupported) toast("请使用设备音量键调节音量");
+      else bgMusic.muted = false;
+      syncVolume(true);
+    });
+    on(muteBtn, "click", () => {
+      if (bgMusic.muted || bgMusic.volume === 0) {
+        if (bgMusic.volume === 0) {
+          try { bgMusic.volume = lastAudibleVolume; } catch {}
+        }
+        bgMusic.muted = false;
+      } else bgMusic.muted = true;
+      syncVolume(true);
+    });
+    on(bgMusic, "volumechange", () => syncVolume(true));
+    syncVolume();
 
     const setHint = text => { if (hint && hint.textContent !== text) hint.textContent = text; };
     const setPlayingUI = playing => {
@@ -195,6 +371,9 @@
       toggleBtn.setAttribute("aria-label", playing ? "暂停音乐" : "播放音乐");
       toggleBtn.setAttribute("aria-pressed", String(playing));
       toggleBtn.title = playing ? "暂停音乐" : "播放音乐";
+      if (mediaSession) {
+        try { mediaSession.playbackState = playing ? "playing" : (sourceIndex ? "paused" : "none"); } catch {}
+      }
     };
 
     let audioCtx = null;
@@ -273,12 +452,14 @@
     let hasSpectrum = false;
     let vizRAF = 0;
     let vizTimer = 0;
-    let frameClockSlow = false;
-    let healthyFrames = 0;
-    let lastClock = 0;
+    let lastAnimationFrame = 0;
     let lastFrame = 0;
-    let lastProgress = 0;
+    let lastAccentFrame = 0;
     let previousProgress = "";
+    let previousSeekValue = "";
+    let previousSeekDisabled = null;
+    let previousTimeText = "";
+    let previousSeekText = "";
     let previousEnergy = "";
     let previousKick = "";
     let lastBeat = 0;
@@ -296,12 +477,13 @@
     let spectrumWidth = 0, spectrumHeight = 0, spectrumDpr = 0;
     let spectrumDirty = true;
     const columnOrder = bars.map((_, i) => i < bars.length / 2 ? bars.length - 2 - i * 2 : (i - bars.length / 2) * 2 + 1);
-    const columnColors = columnOrder.map(band => `hsl(${315 - band / Math.max(1, bars.length - 1) * 135} 100% 65%)`);
+    const columnColors = columnOrder.map(band => `hsl(${315 - band / Math.max(1, bars.length - 1) * 135}, 100%, 65%)`);
     const particles = Array.from({ length: 16 }, () => ({ x: 0, y: 0, vx: 0, vy: 0, life: 0 }));
     let particleIndex = 0;
     let lastSpectrumBeat = 0;
     let spectrumGradients = [];
     let floorGradient = null;
+    let segmentPattern = null;
 
     const prepareSpectrum = () => {
       if (canvasUnavailable || !eqEl) return false;
@@ -326,7 +508,7 @@
           }, { passive: true });
         }
       }
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = Math.min(window.devicePixelRatio || 1, constrainedDevice || !finePointerQuery.matches ? 1.5 : 2);
       if (spectrumDirty || spectrumDpr !== dpr) {
         spectrumDpr = dpr; spectrumDirty = false;
         spectrumCanvas.width = Math.max(1, Math.round(spectrumWidth * dpr));
@@ -339,8 +521,19 @@
         });
         floorGradient = spectrumContext.createLinearGradient(0, 0, spectrumWidth, 0);
         floorGradient.addColorStop(0, "#00e5ff"); floorGradient.addColorStop(0.5, "#ff36bb"); floorGradient.addColorStop(1, "#00e5ff");
+        // Segment gaps are static. Rasterize one strip on resize, then reuse it
+        // for every column instead of painting each tiny gap on every frame.
+        const strip = document.createElement("canvas");
+        strip.width = 1; strip.height = Math.max(1, Math.ceil(spectrumHeight));
+        const stripContext = strip.getContext("2d");
+        segmentPattern = null;
+        if (stripContext) {
+          stripContext.fillStyle = "#09091b";
+          for (let y = spectrumHeight - 9; y > 0; y -= 3.5) stripContext.fillRect(0, y, 1, 0.7);
+          segmentPattern = spectrumContext.createPattern(strip, "repeat");
+        }
       }
-      eqEl.classList.add("is-canvas");
+      if (!eqEl.classList.contains("is-canvas")) eqEl.classList.add("is-canvas");
       return true;
     };
 
@@ -361,7 +554,7 @@
       ctx.fillRect(0, h * 0.48, w, h * 0.52);
 
       // The expanding arcs are driven by detected onsets, never a timer.
-      if (kick > 0.02) {
+      if (effectsEnabled && !motionQuery.matches && kick > 0.02) {
         ctx.strokeStyle = floorGradient;
         ctx.globalAlpha = kick * 0.65;
         ctx.lineWidth = 1.2;
@@ -369,7 +562,7 @@
         ctx.ellipse(w / 2, floor, w * (0.1 + (1 - kick) * 0.5), travel * (0.25 + (1 - kick) * 0.85), 0, Math.PI, Math.PI * 2);
         ctx.stroke();
       }
-      if (lastBeat !== lastSpectrumBeat && kick > 0.1) {
+      if (effectsEnabled && !motionQuery.matches && lastBeat !== lastSpectrumBeat && kick > 0.1) {
         lastSpectrumBeat = lastBeat;
         for (const column of [5, 11, 16, 22]) {
           const band = columnOrder[Math.min(column, bars.length - 1)];
@@ -392,8 +585,13 @@
         ctx.fillStyle = spectrumGradients[column];
         ctx.fillRect(x, top, barWidth, Math.max(1, floor - top));
         ctx.globalAlpha = 0.34;
-        ctx.fillStyle = "#09091b";
-        for (let y = floor - 3; y > top + 1; y -= 3.5) ctx.fillRect(x, y, barWidth, 0.7);
+        if (segmentPattern) {
+          ctx.fillStyle = segmentPattern;
+          ctx.fillRect(x, top + 1, barWidth, Math.max(0, floor - top - 1));
+        } else {
+          ctx.fillStyle = "#09091b";
+          for (let y = floor - 3; y > top + 1; y -= 3.5) ctx.fillRect(x, y, barWidth, 0.7);
+        }
         ctx.globalAlpha = 0.95;
         ctx.fillStyle = "#e9fbff";
         ctx.fillRect(x, floor - peaks[band] * travel - 1.2, barWidth, 1.1);
@@ -401,18 +599,31 @@
         ctx.fillStyle = columnColors[column];
         ctx.fillRect(x, floor + 2, barWidth, levels[band] * 4);
       }
-      // A bright ridge connects the real band envelope, with a soft neon edge.
+      // Smooth the real band envelope into a neon ribbon without blur filters
+      // or extra DOM layers. Midpoints preserve peaks while softening corners.
       ctx.beginPath();
+      let ridgeX = 0, ridgeY = 0;
       for (let column = 0; column < bars.length; column++) {
         const x = (column + 0.5) * step, y = floor - levels[columnOrder[column]] * travel;
-        if (column) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+        if (!column) ctx.moveTo(x, y);
+        else ctx.quadraticCurveTo(ridgeX, ridgeY, (ridgeX + x) / 2, (ridgeY + y) / 2);
+        ridgeX = x; ridgeY = y;
       }
-      ctx.strokeStyle = "#ffbaff"; ctx.lineWidth = 3; ctx.globalAlpha = 0.16; ctx.stroke();
+      ctx.lineTo(ridgeX, ridgeY);
+      ctx.strokeStyle = floorGradient; ctx.lineWidth = 3; ctx.globalAlpha = 0.2; ctx.stroke();
       ctx.strokeStyle = "#edffff"; ctx.lineWidth = 0.8; ctx.globalAlpha = 0.72; ctx.stroke();
       for (const particle of particles) {
         if (particle.life <= 0) continue;
+        if (!effectsEnabled || motionQuery.matches) { particle.life = 0; continue; }
         particle.life = Math.max(0, particle.life - dt / 340);
         particle.x += particle.vx * dt; particle.y += particle.vy * dt; particle.vy += dt * 0.00006;
+        if (!motionQuery.matches) {
+          ctx.beginPath();
+          ctx.moveTo(particle.x - particle.vx * 32, particle.y - particle.vy * 32);
+          ctx.lineTo(particle.x, particle.y);
+          ctx.strokeStyle = floorGradient; ctx.lineWidth = 0.8;
+          ctx.globalAlpha = particle.life * 0.45; ctx.stroke();
+        }
         ctx.globalAlpha = particle.life * 0.85; ctx.fillStyle = "#f3fdff";
         ctx.fillRect(particle.x, particle.y, 1.4, 1.4);
       }
@@ -421,36 +632,93 @@
       ctx.globalAlpha = 1;
     };
     const renderDockTransform = () => {
-      const bounce = motionQuery.matches ? 0 : kick;
-      const transform = tiltX || tiltY || bounce
-        ? `translateX(-50%) perspective(900px) rotateX(${tiltX.toFixed(2)}deg) rotateY(${tiltY.toFixed(2)}deg) scale(${(1 + bounce * 0.012).toFixed(4)})`
+      const transform = tiltX || tiltY
+        ? `translateX(-50%) perspective(900px) rotateX(${tiltX.toFixed(2)}deg) rotateY(${tiltY.toFixed(2)}deg)`
         : "";
       if (transform === previousDockTransform) return;
-      // A non-inherited transform keeps each beat out of the dock's descendants.
+      // Only a pointer gesture moves this large layer. Beat motion stays local
+      // to the play button and spectrum instead of rescaling the whole dock.
       dock.style.transform = transform;
       previousDockTransform = transform;
     };
 
-    const updateProgress = () => {
-      if (!progress || !pageActive) return;
-      const duration = bgMusic.duration;
-      const ratio = Number.isFinite(duration) && duration > 0 ? clamp(bgMusic.currentTime / duration, 0, 1) : 0;
-      const value = `scaleX(${ratio.toFixed(5)})`;
-      if (value !== previousProgress) {
+    const currentDuration = () => sourceIndex === idx && !bgMusic.error && Number.isFinite(bgMusic.duration) && bgMusic.duration > 0 ? bgMusic.duration : 0;
+    const formatTime = time => {
+      const seconds = Math.max(0, Math.floor(Number.isFinite(time) ? time : 0));
+      const minutes = Math.floor(seconds / 60);
+      return `${minutes}:${String(seconds % 60).padStart(2, "0")}`;
+    };
+    const paintProgress = ratio => {
+      const value = `scaleX(${ratio.toFixed(4)})`;
+      if (progress && value !== previousProgress) {
         progress.style.transform = value;
         previousProgress = value;
       }
     };
+    const paintTime = (position, duration) => {
+      const timeText = `${formatTime(position)} / ${duration > 0 ? formatTime(duration) : "--:--"}`;
+      if (trackTime && previousTimeText !== timeText) { trackTime.textContent = timeText; previousTimeText = timeText; }
+      const seekText = duration > 0 ? timeText : "播放音乐后可调整进度";
+      if (seekTrack && previousSeekText !== seekText) { seekTrack.setAttribute("aria-valuetext", seekText); previousSeekText = seekText; }
+    };
+    const updateProgress = () => {
+      if (!pageActive) return;
+      const duration = currentDuration();
+      if (seekTrack && previousSeekDisabled !== !duration) { seekTrack.disabled = !duration; previousSeekDisabled = !duration; }
+      if (!duration) scrubbing = false;
+      if (scrubbing) return;
+      const position = duration ? clamp(bgMusic.currentTime, 0, duration) : 0;
+      const ratio = duration ? position / duration : 0;
+      paintProgress(ratio);
+      const seekValue = String(Math.round(ratio * 1000));
+      if (seekTrack && previousSeekValue !== seekValue) { seekTrack.value = seekValue; previousSeekValue = seekValue; }
+      paintTime(position, duration);
+    };
+    let lastMediaPosition = 0;
+    const syncMediaPosition = (force = true) => {
+      if (!mediaSession || typeof mediaSession.setPositionState !== "function") return;
+      const now = performance.now();
+      if (!force && now - lastMediaPosition < 1000) return;
+      lastMediaPosition = now;
+      const duration = currentDuration();
+      try {
+        if (duration && bgMusic.playbackRate > 0) {
+          mediaSession.setPositionState({ duration, playbackRate: bgMusic.playbackRate, position: clamp(bgMusic.currentTime, 0, duration) });
+        } else mediaSession.setPositionState();
+      } catch {}
+    };
+    const seekTo = position => {
+      const duration = currentDuration();
+      if (!duration || !Number.isFinite(position)) return;
+      try { bgMusic.currentTime = clamp(position, 0, duration); } catch { return; }
+      updateProgress();
+      syncMediaPosition();
+    };
+    on(seekTrack, "input", () => {
+      const duration = currentDuration();
+      if (!duration) return;
+      scrubbing = true;
+      previousSeekValue = seekTrack.value;
+      const ratio = clamp(Number(seekTrack.value) / 1000, 0, 1);
+      paintProgress(ratio);
+      paintTime(ratio * duration, duration);
+    });
+    on(seekTrack, "change", () => {
+      scrubbing = false;
+      seekTo(Number(seekTrack.value) / 1000 * currentDuration());
+    });
+    const cancelScrub = () => { scrubbing = false; updateProgress(); };
+    on(seekTrack, "pointercancel", cancelScrub);
+    on(seekTrack, "blur", cancelScrub);
 
     const stopViz = (resetSpectrum = false) => {
       cancelAnimationFrame(vizRAF);
       clearTimeout(vizTimer);
       vizRAF = 0;
       vizTimer = 0;
-      frameClockSlow = false;
-      healthyFrames = 0;
-      lastClock = 0;
+      lastAnimationFrame = 0;
       lastFrame = 0;
+      lastAccentFrame = 0;
       kick = 0;
       bassAverage = 0;
       rmsAverage = 0;
@@ -459,13 +727,12 @@
       if (eqEl) eqEl.dataset.state = hasSpectrum && !resetSpectrum ? "frozen" : "idle";
       if (previousEnergy !== "0") toggleBtn.style.setProperty("--energy", "0");
       if (previousKick !== "0") toggleBtn.style.setProperty("--kick", "0");
-      renderDockTransform();
       previousEnergy = previousKick = "0";
       // A pause preserves the exact last rendered spectrum. Only a new track
       // or a failed source clears it, so there is no fabricated resting chart.
       if (hasSpectrum && !resetSpectrum) return;
       hasSpectrum = false;
-      eqEl?.classList.remove("is-canvas");
+      if (eqEl) eqEl.classList.remove("is-canvas");
       if (spectrumContext) spectrumContext.clearRect(0, 0, spectrumWidth, spectrumHeight);
       for (const particle of particles) particle.life = 0;
       lastSpectrumBeat = 0;
@@ -481,32 +748,39 @@
 
     // The local spectrum remains responsive in both motion modes; large-area
     // motion is disabled when reduced motion is requested.
-    const canVisualize = () => pageActive && !bgMusic.paused && !bgMusic.ended && !buffering && audioCtx?.state === "running" && analyser && freq && bars.length;
-    const scheduleViz = () => {
-      // Some embedded previews report a visible page but throttle RAF to 1 Hz.
-      // Race a bounded timer against RAF; both are cancelled on pause/hide.
-      const tick = (time, fromTimer) => {
-        cancelAnimationFrame(vizRAF);
-        clearTimeout(vizTimer);
-        vizRAF = vizTimer = 0;
-        if (fromTimer) { frameClockSlow = true; healthyFrames = 0; }
-        else {
-          healthyFrames = lastClock && time - lastClock < 50 ? healthyFrames + 1 : 0;
-          if (healthyFrames >= 4) frameClockSlow = false;
-        }
-        lastClock = time;
-        draw(time);
-      };
-      vizRAF = requestAnimationFrame(time => tick(time, false));
-      vizTimer = setTimeout(() => tick(performance.now(), true), frameClockSlow ? 34 : 120);
-    };
-    const draw = ts => {
+    const canVisualize = () => pageActive && !isScrolling && !bgMusic.paused && !bgMusic.ended && !buffering && audioCtx && audioCtx.state === "running" && analyser && freq && bars.length;
+    const visualFrame = time => {
       vizRAF = 0;
       if (!canVisualize()) { stopViz(); return; }
-      scheduleViz();
-      const elapsed = lastFrame ? ts - lastFrame : 16.67;
+      lastAnimationFrame = time;
+      draw(time);
+      vizRAF = requestAnimationFrame(visualFrame);
+    };
+    const watchVisualFrames = () => {
+      vizTimer = 0;
+      if (!canVisualize()) { stopViz(); return; }
+      const time = performance.now();
+      const stalled = time - lastAnimationFrame >= 150;
+      // Keep the real RAF alive so normal browser scheduling resumes immediately.
+      // A visible embedded preview still gets its bounded fallback when needed.
+      if (stalled) draw(time);
+      vizTimer = setTimeout(watchVisualFrames, stalled ? 34 : 150);
+    };
+    const scheduleViz = () => {
+      // One low-frequency watchdog replaces creating/cancelling a timer per RAF.
+      lastAnimationFrame = performance.now();
+      vizRAF = requestAnimationFrame(visualFrame);
+      vizTimer = setTimeout(watchVisualFrames, 150);
+    };
+    const draw = ts => {
+      if (!canVisualize()) { stopViz(); return; }
+      // Some legacy MQL wrappers update matches without delivering change.
+      // Clear an existing tilt once; ordinary spectrum frames never move dock.
+      if ((tiltX || tiltY) && !canTilt()) resetTilt();
+      const frameInterval = motionQuery.matches || constrainedDevice || !finePointerQuery.matches ? 1000 / 30 : 1000 / 60;
+      const elapsed = lastFrame ? ts - lastFrame : frameInterval;
       const reducedMotion = motionQuery.matches;
-      if (lastFrame && elapsed < (reducedMotion ? 32 : 16)) return;
+      if (lastFrame && elapsed < frameInterval - 1) return;
       lastFrame = ts;
       analyser.getByteFrequencyData(freq);
       analyser.getByteTimeDomainData(waveform);
@@ -545,12 +819,6 @@
       flux /= bars.length;
       const loudness = 1 - Math.exp(-rms * 3.5);
       glowEnergy += (loudness - glowEnergy) * (1 - Math.exp(-dt / 70));
-      const energy = (glowEnergy * (reducedMotion ? 0.65 : 1)).toFixed(3);
-      if (energy !== previousEnergy) {
-        // Only the play button's glow consumes energy; keep updates local to it.
-        toggleBtn.style.setProperty("--energy", energy);
-        previousEnergy = energy;
-      }
       bassAverage += (bass - bassAverage) * (1 - Math.exp(-dt / 450));
       rmsAverage += (rms - rmsAverage) * (1 - Math.exp(-dt / 550));
       if (rms > 0.02 && ts - lastBeat > 190 && (flux > 0.018 || (bass > 0.2 && bass > bassAverage * 1.08 && rms > rmsAverage * 1.025))) {
@@ -560,17 +828,16 @@
         kick *= Math.exp(-dt / 150);
       }
       if (kick < 0.005) kick = 0;
-      const pulse = kick ? kick.toFixed(3) : "0";
-      if (pulse !== previousKick) {
-        toggleBtn.style.setProperty("--kick", pulse);
-        previousKick = pulse;
+      // CSS accents need less bandwidth than the small canvas. Quantize and
+      // cap their paint-triggering writes at 25 Hz instead of every display frame.
+      if (ts - lastAccentFrame >= 40) {
+        lastAccentFrame = ts;
+        const energy = (effectsEnabled ? glowEnergy * (reducedMotion ? 0.65 : 1) : 0).toFixed(2);
+        const pulse = effectsEnabled && kick ? kick.toFixed(2) : "0";
+        if (energy !== previousEnergy) { toggleBtn.style.setProperty("--energy", energy); previousEnergy = energy; }
+        if (pulse !== previousKick) { toggleBtn.style.setProperty("--kick", pulse); previousKick = pulse; }
       }
       renderSpectrum(dt);
-      renderDockTransform();
-      if (ts - lastProgress >= 100) {
-        updateProgress();
-        lastProgress = ts;
-      }
     };
 
     const syncViz = () => {
@@ -607,6 +874,11 @@
       toast("这首音乐暂时无法播放，请重试或切换下一首");
     };
 
+    const updateMediaMetadata = () => {
+      if (!mediaSession || typeof window.MediaMetadata !== "function") return;
+      try { mediaSession.metadata = new window.MediaMetadata({ title: `第 ${idx} 首`, artist: "DJCARL" }); } catch {}
+    };
+
     const play = async () => {
       const request = ++operation;
       wantsPlayback = true;
@@ -619,6 +891,7 @@
         sourceIndex = idx;
         bgMusic.src = `${idx}.mp3`;
       }
+      updateMediaMetadata();
       try {
         // Start both in the user gesture; awaiting resume first can lose activation.
         const ready = setupAnalyser();
@@ -644,6 +917,14 @@
       setHint("音乐：已暂停");
     };
 
+    const syncPlaylistSelection = () => {
+      for (let i = 0; i < playlistButtons.length; i++) {
+        const selected = i + 1 === idx;
+        playlistButtons[i].classList.toggle("is-current", selected);
+        playlistButtons[i].setAttribute("aria-current", String(selected));
+      }
+    };
+
     const setTrack = (index, autoplay = false) => {
       operation++;
       wantsPlayback = false;
@@ -652,14 +933,145 @@
       bgMusic.pause();
       stopViz(true);
       idx = ((index - 1) % TOTAL_TRACKS + TOTAL_TRACKS) % TOTAL_TRACKS + 1;
+      // A paused selection must not retain the previous song's seekable metadata
+      // or download. Assign the new source only in the explicit play path.
+      if (sourceIndex && sourceIndex !== idx) {
+        sourceIndex = 0;
+        bgMusic.removeAttribute("src");
+        bgMusic.load();
+      }
+      scrubbing = false;
+      buffering = false;
       storage.setItem("trackIndex", String(idx));
       if (trackName) trackName.textContent = `第 ${idx} 首`;
-      if (progress) progress.style.transform = "scaleX(0)";
-      previousProgress = "scaleX(0)";
+      syncPlaylistSelection();
+      updateProgress();
+      syncMediaPosition();
       setPlayingUI(false);
       setHint("音乐：点 ▶ 开始");
       if (autoplay) void play();
     };
+
+    const focusControl = (element, preventScroll = false) => {
+      if (!element || typeof element.focus !== "function") return;
+      try { element.focus({ preventScroll }); } catch { element.focus(); }
+    };
+    const finishPlaylist = () => {
+      if (!playlistOpen) return;
+      playlistOpen = false;
+      if (trackName) trackName.setAttribute("aria-expanded", "false");
+      document.documentElement.classList.remove("playlist-open");
+      playlistDialog.removeAttribute("data-open");
+      if (playlistShade) playlistShade.hidden = true;
+      if (!nativeModal) playlistDialog.removeAttribute("open");
+      for (const state of fallbackSiblings) {
+        if (state.inert === null) state.element.removeAttribute("inert");
+        else state.element.setAttribute("inert", state.inert);
+        if (state.hidden === null) state.element.removeAttribute("aria-hidden");
+        else state.element.setAttribute("aria-hidden", state.hidden);
+      }
+      fallbackSiblings = [];
+      nativeModal = false;
+      focusControl(trackName, true);
+    };
+    const closePlaylist = () => {
+      if (!playlistOpen) return;
+      if (nativeModal && playlistDialog.open && typeof playlistDialog.close === "function") playlistDialog.close();
+      finishPlaylist();
+    };
+    const openPlaylist = () => {
+      if (!playlistDialog || playlistOpen) return;
+      playlistOpen = true;
+      nativeModal = false;
+      playlistDialog.setAttribute("role", "dialog");
+      playlistDialog.setAttribute("aria-modal", "true");
+      if (trackName) trackName.setAttribute("aria-expanded", "true");
+      document.documentElement.classList.add("playlist-open");
+      updateProgress();
+      if (typeof playlistDialog.showModal === "function") {
+        try { playlistDialog.showModal(); nativeModal = true; } catch {}
+      }
+      if (!nativeModal) {
+        playlistDialog.setAttribute("open", "");
+        playlistDialog.setAttribute("data-open", "true");
+        if (playlistShade) playlistShade.hidden = false;
+        // Unknown <dialog> elements need both focus containment and background
+        // semantics. Preserve existing attributes exactly when the panel closes.
+        fallbackSiblings = Array.from(document.body.children)
+          .filter(element => element !== playlistDialog && element !== playlistShade && !element.contains(playlistDialog))
+          .map(element => ({ element, inert: element.getAttribute("inert"), hidden: element.getAttribute("aria-hidden") }));
+        for (const state of fallbackSiblings) {
+          state.element.setAttribute("inert", "");
+          state.element.setAttribute("aria-hidden", "true");
+        }
+      }
+      focusControl(playlistButtons[idx - 1] || closePlaylistBtn);
+    };
+
+    if (playlistList) {
+      const fragment = document.createDocumentFragment();
+      for (let number = 1; number <= TOTAL_TRACKS; number++) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "playlistTrack";
+        button.textContent = `第 ${number} 首`;
+        on(button, "click", () => {
+          if (number !== idx) setTrack(number, true);
+          else if (bgMusic.paused && !wantsPlayback) void play();
+          closePlaylist();
+        });
+        playlistButtons.push(button);
+        fragment.appendChild(button);
+      }
+      playlistList.appendChild(fragment);
+    }
+    on(trackName, "click", openPlaylist);
+    on(closePlaylistBtn, "click", closePlaylist);
+    on(playlistShade, "click", closePlaylist);
+    on(playlistDialog, "cancel", event => { event.preventDefault(); closePlaylist(); });
+    on(playlistDialog, "close", () => { if (!playlistDialog.open) finishPlaylist(); });
+    on(playlistDialog, "click", event => {
+      if (event.target !== playlistDialog) return;
+      const box = playlistDialog.getBoundingClientRect();
+      if (event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom) closePlaylist();
+    });
+    on(document, "click", event => {
+      if (!playlistOpen || nativeModal || playlistDialog.contains(event.target)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      closePlaylist();
+    }, true);
+    on(document, "keydown", event => {
+      if (!playlistOpen) return;
+      if (event.key === "Escape") { event.preventDefault(); closePlaylist(); return; }
+      if (event.key !== "Tab") return;
+      const controls = $$("button:not([disabled]), input:not([disabled]), a[href], [tabindex]:not([tabindex='-1'])", playlistDialog)
+        .filter(element => !element.hidden && element.getClientRects().length);
+      if (!controls.length) { event.preventDefault(); return; }
+      const first = controls[0], last = controls[controls.length - 1];
+      const outside = !playlistDialog.contains(document.activeElement);
+      if (event.shiftKey && (document.activeElement === first || outside)) { event.preventDefault(); focusControl(last); }
+      else if (!event.shiftKey && (document.activeElement === last || outside)) { event.preventDefault(); focusControl(first); }
+    });
+    on(document, "focusin", event => {
+      if (playlistOpen && !playlistDialog.contains(event.target)) focusControl(playlistButtons[idx - 1] || closePlaylistBtn);
+    });
+
+    if (mediaSession && typeof mediaSession.setActionHandler === "function") {
+      const actions = {
+        play: () => { void play(); },
+        pause,
+        stop: () => { pause(); seekTo(0); },
+        previoustrack: () => setTrack(idx - 1, true),
+        nexttrack: () => setTrack(idx + 1, true),
+        seekto: details => seekTo(details.seekTime),
+        seekbackward: details => seekTo(bgMusic.currentTime - (Number.isFinite(details.seekOffset) ? details.seekOffset : 10)),
+        seekforward: details => seekTo(bgMusic.currentTime + (Number.isFinite(details.seekOffset) ? details.seekOffset : 10)),
+      };
+      for (const action of Object.keys(actions)) {
+        try { mediaSession.setActionHandler(action, actions[action]); } catch {}
+      }
+    }
 
     on(toggleBtn, "click", () => { if (wantsPlayback || !bgMusic.paused) pause(); else void play(); });
     on(nextBtn, "click", () => { setTrack(idx + 1, true); toast("🎧 下一首"); });
@@ -667,6 +1079,7 @@
       if (bgMusic.paused) return;
       wantsPlayback = true;
       setPlayingUI(true);
+      if (audioCtx && audioCtx.state !== "running") void resumeAudio().catch(() => {});
     });
     on(bgMusic, "playing", () => {
       if (bgMusic.paused) return;
@@ -676,13 +1089,16 @@
     });
     on(bgMusic, "pause", () => {
       if (!bgMusic.paused) return;
-      wantsPlayback = false;
-      operation++;
+      // A natural end queues pause before ended; retain its intent so only
+      // active listening advances. Seeking a paused song to End stays paused.
+      const naturalEnd = bgMusic.ended && wantsPlayback;
+      if (!naturalEnd) { wantsPlayback = false; operation++; }
       setPlayingUI(false);
       stopViz();
       updateProgress();
+      syncMediaPosition();
       if (audioCtx) void audioCtx.suspend().catch(() => {});
-      if (!failed) setHint(interrupted ? "音乐：已中断，点 ▶ 继续" : "音乐：已暂停");
+      if (!failed && !naturalEnd) setHint(interrupted ? "音乐：已中断，点 ▶ 继续" : "音乐：已暂停");
     });
     on(bgMusic, "waiting", () => {
       if (!wantsPlayback) return;
@@ -690,11 +1106,14 @@
       setHint("音乐：缓冲中…");
       stopViz();
     });
-    on(bgMusic, "loadedmetadata", updateProgress);
-    on(bgMusic, "durationchange", updateProgress);
-    on(bgMusic, "timeupdate", updateProgress);
-    on(bgMusic, "seeked", updateProgress);
-    on(bgMusic, "ended", () => setTrack(idx + 1, true));
+    on(bgMusic, "timeupdate", () => { updateProgress(); syncMediaPosition(false); });
+    for (const event of ["loadedmetadata", "durationchange", "seeked", "emptied", "ratechange"]) {
+      on(bgMusic, event, () => { updateProgress(); syncMediaPosition(); });
+    }
+    on(bgMusic, "ended", () => {
+      if (wantsPlayback) setTrack(idx + 1, true);
+      else { setPlayingUI(false); updateProgress(); }
+    });
     on(bgMusic, "error", failPlayback);
 
     // Tilt reads its bounds once on entry, then coalesces pointer writes per frame.
@@ -702,7 +1121,7 @@
     let bounds = null;
     let pointerX = 0;
     let pointerY = 0;
-    const canTilt = () => pageActive && !motionQuery.matches;
+    const canTilt = () => pageActive && !isScrolling && effectsEnabled && finePointerQuery.matches && !constrainedDevice && !motionQuery.matches;
     const resetTilt = () => {
       cancelAnimationFrame(tiltRAF);
       tiltRAF = 0;
@@ -714,7 +1133,10 @@
       if (canTilt() && e.pointerType !== "touch") bounds = dock.getBoundingClientRect();
     }, { passive: true });
     on(dock, "pointermove", e => {
-      if (!canTilt() || e.pointerType === "touch") return;
+      if (!canTilt() || e.pointerType === "touch") {
+        if (tiltX || tiltY) resetTilt();
+        return;
+      }
       if (!bounds) bounds = dock.getBoundingClientRect();
       pointerX = e.clientX;
       pointerY = e.clientY;
@@ -735,13 +1157,19 @@
     on(window, "resize", resetTilt, { passive: true });
     on(finePointerQuery, "change", resetTilt);
     on(motionQuery, "change", () => { stopViz(); resetTilt(); syncViz(); });
+    on(document, "effectschange", resetTilt);
+    on(document, "scrollstatechange", () => {
+      if (isScrolling) { resetTilt(); stopViz(); }
+      else { updateProgress(); syncViz(); }
+    });
     on(document, "visibilitychange", () => {
       pageActive = !document.hidden;
+      scrubbing = false;
       resetTilt();
       updateProgress();
       syncViz();
     });
-    on(window, "pagehide", () => { pageActive = false; resetTilt(); stopViz(); });
+    on(window, "pagehide", () => { pageActive = false; scrubbing = false; resetTilt(); stopViz(); });
     on(window, "pageshow", () => { pageActive = !document.hidden; updateProgress(); syncViz(); });
 
     setTrack(idx);
@@ -750,6 +1178,9 @@
   // ---------- init ----------
   const init = () => {
     // Links are in HTML so they are visible and usable before JavaScript runs.
+    detectFlexGap();
+    setupEffects();
+    setupScrollPerformance();
 
     const moodBtns = moodButtons;
     for (let i = 0; i < moodBtns.length; i++) {
@@ -775,7 +1206,7 @@
 
     const funTitle = $("#funTitle");
     const funSub = $("#funSub");
-    let funState = { t: funTitle?.textContent || "", s: funSub?.textContent || "" };
+    let funState = { t: (funTitle && funTitle.textContent) || "", s: (funSub && funSub.textContent) || "" };
 
     const setFun = (it) => {
       funState = it;
