@@ -566,7 +566,12 @@ body::before{
 .eqCanvas{ display:none; position:absolute; top:0; right:0; bottom:0; left:0; inset:0; width:100%; height:100%; pointer-events:none; }
 .eq.is-canvas{ contain:layout paint; }
 .eq.is-canvas > i{ visibility:hidden; }
-.eq.is-canvas .eqCanvas{ display:block; }
+.eq.is-canvas .eqCanvas{
+  display:block;
+  /* Keep the changing 200 × 42 spectrum texture separate from the dock's
+     static gradients and large shadow, including during compositor scrolling. */
+  transform:translateZ(0);
+}
 
 .eq i{
   display:block;
@@ -795,8 +800,7 @@ body.is-playing .eq i{
   }
 }
 
-.heartsLayer.is-paused .heartDrop,
-html.is-scrolling .heartDrop{ animation-play-state: paused; }
+.heartsLayer.is-paused .heartDrop{ animation-play-state: paused; }
 
 /* Only animate a shine in response to interaction; no idle repaint loop. */
 .card{ transition:transform .2s cubic-bezier(.2,.8,.2,1); }
@@ -819,25 +823,6 @@ html.is-scrolling .heartDrop{ animation-play-state: paused; }
 .linkCard:active{ transform:translateY(0) scale(.985); }
 .dock.visual-active #musicToggle::before,
 .dock.visual-active #musicToggle::after{ will-change:transform,opacity; }
-
-/* Touch/trackpad scrolling has priority; decoration resumes at the same frame
-   after scrolling settles, without changing layout or interrupting music. */
-html.is-scrolling .chip::before,
-html.is-scrolling .btn.primary::after,
-html.is-scrolling .dock #musicToggle::before{ animation-play-state:paused; }
-html.is-scrolling .linkCard::after,
-html.is-scrolling .dock #musicToggle::before,
-html.is-scrolling .dock #musicToggle::after{
-  opacity:0;
-  transition:none;
-  will-change:auto;
-}
-html.is-scrolling .pill,
-html.is-scrolling .card,
-html.is-scrolling .chip,
-html.is-scrolling .btn,
-html.is-scrolling .linkCard,
-html.is-scrolling .iconBtn{ transition:none; }
 
 /* Keep legacy clipboard selection offscreen while allowing iOS selection. */
 .clipboardFallback{

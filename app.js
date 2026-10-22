@@ -160,38 +160,6 @@
     || (navigator.hardwareConcurrency > 0 && navigator.hardwareConcurrency <= 4)
     || (navigator.deviceMemory > 0 && navigator.deviceMemory <= 4));
   let effectsEnabled = storage.getItem("effects") !== "off";
-  let isScrolling = false;
-
-  // Scroll owns the frame budget. Only its start/end changes styles; the hot
-  // handler reads no layout and uses one idle timer throughout a gesture.
-  const setupScrollPerformance = () => {
-    let idleTimer = 0;
-    let lastScroll = 0;
-    const settle = () => {
-      const remaining = 180 - (performance.now() - lastScroll);
-      if (remaining > 0) { idleTimer = setTimeout(settle, remaining); return; }
-      idleTimer = 0;
-      if (!isScrolling) return;
-      isScrolling = false;
-      document.documentElement.classList.remove("is-scrolling");
-      document.dispatchEvent(new Event("scrollstatechange"));
-    };
-    on(window, "scroll", () => {
-      if (document.hidden) return;
-      lastScroll = performance.now();
-      if (isScrolling) return;
-      isScrolling = true;
-      document.documentElement.classList.add("is-scrolling");
-      document.dispatchEvent(new Event("scrollstatechange"));
-      idleTimer = setTimeout(settle, 180);
-    }, { passive: true, capture: true });
-    on(window, "pagehide", () => {
-      clearTimeout(idleTimer);
-      idleTimer = 0;
-      isScrolling = false;
-      document.documentElement.classList.remove("is-scrolling");
-    });
-  };
 
   const setupEffects = () => {
     const toggle = $("#effectsToggle");
@@ -476,6 +444,7 @@
     let spectrumCanvas = null, spectrumContext = null, canvasUnavailable = false;
     let spectrumWidth = 0, spectrumHeight = 0, spectrumDpr = 0;
     let spectrumDirty = true;
+    let canvasVisible = false;
     const columnOrder = bars.map((_, i) => i < bars.length / 2 ? bars.length - 2 - i * 2 : (i - bars.length / 2) * 2 + 1);
     const columnColors = columnOrder.map(band => `hsl(${315 - band / Math.max(1, bars.length - 1) * 135}, 100%, 65%)`);
     const particles = Array.from({ length: 16 }, () => ({ x: 0, y: 0, vx: 0, vy: 0, life: 0 }));
@@ -484,6 +453,9 @@
     let spectrumGradients = [];
     let floorGradient = null;
     let segmentPattern = null;
+    let spectrumFloor = 0, spectrumTravel = 0, spectrumStep = 0, spectrumBarWidth = 0;
+    const columnPositions = new Float64Array(bars.length);
+    const particleColumns = [5, 11, 16, 22];
 
     const prepareSpectrum = () => {
       if (canvasUnavailable || !eqEl) return false;
@@ -514,6 +486,13 @@
         spectrumCanvas.width = Math.max(1, Math.round(spectrumWidth * dpr));
         spectrumCanvas.height = Math.max(1, Math.round(spectrumHeight * dpr));
         spectrumContext.setTransform(dpr, 0, 0, dpr, 0, 0);
+        spectrumFloor = spectrumHeight - 6;
+        spectrumTravel = spectrumFloor - 2;
+        spectrumStep = spectrumWidth / bars.length;
+        spectrumBarWidth = Math.max(1, spectrumStep - (spectrumWidth < 150 ? 1 : 1.8));
+        for (let column = 0; column < bars.length; column++) {
+          columnPositions[column] = column * spectrumStep + (spectrumStep - spectrumBarWidth) / 2;
+        }
         spectrumGradients = columnColors.map(color => {
           const gradient = spectrumContext.createLinearGradient(0, spectrumHeight, 0, 0);
           gradient.addColorStop(0, color); gradient.addColorStop(0.72, color); gradient.addColorStop(1, "#ffffff");
@@ -533,7 +512,7 @@
           segmentPattern = spectrumContext.createPattern(strip, "repeat");
         }
       }
-      if (!eqEl.classList.contains("is-canvas")) eqEl.classList.add("is-canvas");
+      if (!canvasVisible) { eqEl.classList.add("is-canvas"); canvasVisible = true; }
       return true;
     };
 
@@ -546,15 +525,15 @@
         return;
       }
       const ctx = spectrumContext, w = spectrumWidth, h = spectrumHeight;
-      const floor = h - 6, travel = floor - 2, step = w / bars.length;
-      const barWidth = Math.max(1, step - (w < 150 ? 1 : 1.8));
+      const floor = spectrumFloor, travel = spectrumTravel, step = spectrumStep, barWidth = spectrumBarWidth;
+      const decorativeMotion = effectsEnabled && !motionQuery.matches;
       ctx.clearRect(0, 0, w, h);
       ctx.fillStyle = floorGradient;
       ctx.globalAlpha = glowEnergy * 0.12;
       ctx.fillRect(0, h * 0.48, w, h * 0.52);
 
       // The expanding arcs are driven by detected onsets, never a timer.
-      if (effectsEnabled && !motionQuery.matches && kick > 0.02) {
+      if (decorativeMotion && kick > 0.02) {
         ctx.strokeStyle = floorGradient;
         ctx.globalAlpha = kick * 0.65;
         ctx.lineWidth = 1.2;
@@ -562,9 +541,9 @@
         ctx.ellipse(w / 2, floor, w * (0.1 + (1 - kick) * 0.5), travel * (0.25 + (1 - kick) * 0.85), 0, Math.PI, Math.PI * 2);
         ctx.stroke();
       }
-      if (effectsEnabled && !motionQuery.matches && lastBeat !== lastSpectrumBeat && kick > 0.1) {
+      if (decorativeMotion && lastBeat !== lastSpectrumBeat && kick > 0.1) {
         lastSpectrumBeat = lastBeat;
-        for (const column of [5, 11, 16, 22]) {
+        for (const column of particleColumns) {
           const band = columnOrder[Math.min(column, bars.length - 1)];
           if (levels[band] < 0.18) continue;
           const particle = particles[particleIndex++ % particles.length];
@@ -574,7 +553,7 @@
         }
       }
       for (let column = 0; column < bars.length; column++) {
-        const band = columnOrder[column], x = column * step + (step - barWidth) / 2;
+        const band = columnOrder[column], x = columnPositions[column];
         const top = floor - levels[band] * travel;
         ctx.fillStyle = columnColors[column];
         ctx.globalAlpha = 0.17;
@@ -612,19 +591,23 @@
       ctx.lineTo(ridgeX, ridgeY);
       ctx.strokeStyle = floorGradient; ctx.lineWidth = 3; ctx.globalAlpha = 0.2; ctx.stroke();
       ctx.strokeStyle = "#edffff"; ctx.lineWidth = 0.8; ctx.globalAlpha = 0.72; ctx.stroke();
+      let particlePaintReady = false;
       for (const particle of particles) {
         if (particle.life <= 0) continue;
-        if (!effectsEnabled || motionQuery.matches) { particle.life = 0; continue; }
+        if (!decorativeMotion) { particle.life = 0; continue; }
+        // Particle colors and stroke width are identical. Set them once per
+        // batch, retaining each particle's own opacity and original draw order.
+        if (!particlePaintReady) {
+          ctx.strokeStyle = floorGradient; ctx.lineWidth = 0.8; ctx.fillStyle = "#f3fdff";
+          particlePaintReady = true;
+        }
         particle.life = Math.max(0, particle.life - dt / 340);
         particle.x += particle.vx * dt; particle.y += particle.vy * dt; particle.vy += dt * 0.00006;
-        if (!motionQuery.matches) {
-          ctx.beginPath();
-          ctx.moveTo(particle.x - particle.vx * 32, particle.y - particle.vy * 32);
-          ctx.lineTo(particle.x, particle.y);
-          ctx.strokeStyle = floorGradient; ctx.lineWidth = 0.8;
-          ctx.globalAlpha = particle.life * 0.45; ctx.stroke();
-        }
-        ctx.globalAlpha = particle.life * 0.85; ctx.fillStyle = "#f3fdff";
+        ctx.beginPath();
+        ctx.moveTo(particle.x - particle.vx * 32, particle.y - particle.vy * 32);
+        ctx.lineTo(particle.x, particle.y);
+        ctx.globalAlpha = particle.life * 0.45; ctx.stroke();
+        ctx.globalAlpha = particle.life * 0.85;
         ctx.fillRect(particle.x, particle.y, 1.4, 1.4);
       }
       ctx.globalAlpha = 0.3 + kick * 0.45; ctx.fillStyle = floorGradient;
@@ -733,6 +716,7 @@
       if (hasSpectrum && !resetSpectrum) return;
       hasSpectrum = false;
       if (eqEl) eqEl.classList.remove("is-canvas");
+      canvasVisible = false;
       if (spectrumContext) spectrumContext.clearRect(0, 0, spectrumWidth, spectrumHeight);
       for (const particle of particles) particle.life = 0;
       lastSpectrumBeat = 0;
@@ -748,7 +732,7 @@
 
     // The local spectrum remains responsive in both motion modes; large-area
     // motion is disabled when reduced motion is requested.
-    const canVisualize = () => pageActive && !isScrolling && !bgMusic.paused && !bgMusic.ended && !buffering && audioCtx && audioCtx.state === "running" && analyser && freq && bars.length;
+    const canVisualize = () => pageActive && !bgMusic.paused && !bgMusic.ended && !buffering && audioCtx && audioCtx.state === "running" && analyser && freq && bars.length;
     const visualFrame = time => {
       vizRAF = 0;
       if (!canVisualize()) { stopViz(); return; }
@@ -794,12 +778,16 @@
       const signal = clamp(rms / 0.025, 0, 1);
       let flux = 0;
       let bass = 0;
+      // All 28 bands share their attack/release time constants for this frame.
+      // Compute the exact smoothing coefficients once instead of 28 exponentials.
+      const attackBlend = 1 - Math.exp(-dt / (reducedMotion ? 14 : 8));
+      const releaseBlend = 1 - Math.exp(-dt / (reducedMotion ? 95 : 65));
 
       for (let i = 0; i < bars.length; i++) {
         const { start, end } = bands[i];
         let sum = 0, peak = 0;
-        for (let bin = start; bin < end; bin++) { const value = freq[bin] / 255; sum += value; peak = Math.max(peak, value); }
-        const value = (sum / (end - start) * 0.65 + peak * 0.35);
+        for (let bin = start; bin < end; bin++) { const value = freq[bin]; sum += value; if (value > peak) peak = value; }
+        const value = (sum / (end - start) * 0.65 + peak * 0.35) / 255;
         const strength = Math.pow(clamp((value - 0.08) / 0.87, 0, 1), 1.9) * signal;
         const onset = Math.max(0, strength - previousBandEnergy[i]);
         flux += onset;
@@ -807,8 +795,7 @@
         previousBandEnergy[i] = strength;
         const punch = clamp(strength * (0.88 + kick * 0.18) + onset * 2.8, 0, 1);
         const target = REST_LEVEL + punch * (1 - REST_LEVEL);
-        const speed = target > levels[i] ? (reducedMotion ? 14 : 8) : (reducedMotion ? 95 : 65);
-        levels[i] += (target - levels[i]) * (1 - Math.exp(-dt / speed));
+        levels[i] += (target - levels[i]) * (target > levels[i] ? attackBlend : releaseBlend);
         echoes[i] = Math.max(levels[i], echoes[i] - dt / 720);
         if (levels[i] >= peaks[i]) { peaks[i] = levels[i]; peakHolds[i] = 110; }
         else if (peakHolds[i] > 0) peakHolds[i] -= dt;
@@ -1121,7 +1108,7 @@
     let bounds = null;
     let pointerX = 0;
     let pointerY = 0;
-    const canTilt = () => pageActive && !isScrolling && effectsEnabled && finePointerQuery.matches && !constrainedDevice && !motionQuery.matches;
+    const canTilt = () => pageActive && effectsEnabled && finePointerQuery.matches && !constrainedDevice && !motionQuery.matches;
     const resetTilt = () => {
       cancelAnimationFrame(tiltRAF);
       tiltRAF = 0;
@@ -1158,10 +1145,6 @@
     on(finePointerQuery, "change", resetTilt);
     on(motionQuery, "change", () => { stopViz(); resetTilt(); syncViz(); });
     on(document, "effectschange", resetTilt);
-    on(document, "scrollstatechange", () => {
-      if (isScrolling) { resetTilt(); stopViz(); }
-      else { updateProgress(); syncViz(); }
-    });
     on(document, "visibilitychange", () => {
       pageActive = !document.hidden;
       scrubbing = false;
@@ -1180,7 +1163,6 @@
     // Links are in HTML so they are visible and usable before JavaScript runs.
     detectFlexGap();
     setupEffects();
-    setupScrollPerformance();
 
     const moodBtns = moodButtons;
     for (let i = 0; i < moodBtns.length; i++) {

@@ -208,7 +208,7 @@ function instrument({ slowRAF = false } = {}) {
       assert.equal(await page.locator('.eqCanvas').evaluate(el => el.toDataURL()), frozen.image);
       assert.equal(await page.locator('#musicToggle').evaluate(el => getComputedStyle(el, '::before').animationPlayState), 'paused');
     });
-    await check('Scrolling gives up visual work without interrupting music, then resumes one loop', async () => {
+    await check('Music, spectrum, falling hearts and player glow keep animating throughout scrolling', async () => {
       const scrolling = await newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
       await scrolling.addInitScript(instrument);
       const p = await scrolling.newPage();
@@ -217,22 +217,20 @@ function instrument({ slowRAF = false } = {}) {
       await p.waitForFunction(() => window.__analysisReads > 2 && !document.querySelector('audio').paused);
       await p.mouse.move(180, 400);
       await p.mouse.wheel(0, 120);
-      await p.waitForFunction(() => document.documentElement.classList.contains('is-scrolling'));
-      const frozen = await p.evaluate(() => ({ reads: window.__analysisReads, position: document.querySelector('audio').currentTime, y: window.scrollY }));
+      await p.waitForFunction(() => window.scrollY > 0);
+      const before = await p.evaluate(() => ({ reads: window.__analysisReads, position: document.querySelector('audio').currentTime, y: window.scrollY, heart: getComputedStyle(document.querySelector('.heartDrop')).transform, orbit: getComputedStyle(document.querySelector('#musicToggle'), '::before').transform }));
       for (let i = 0; i < 4; i++) {
         await p.mouse.wheel(0, 100);
         await p.waitForTimeout(75);
       }
-      const during = await p.evaluate(() => ({ reads: window.__analysisReads, position: document.querySelector('audio').currentTime, paused: document.querySelector('audio').paused, y: window.scrollY, frames: window.__activeFrames.size, clocks: window.__activeVisualTimers.size, hearts: getComputedStyle(document.querySelector('.heartDrop')).animationPlayState }));
-      assert(during.y > frozen.y, 'the wheel must actually scroll the document');
-      assert.equal(during.reads, frozen.reads, 'the visualizer must not compete with active scrolling');
+      const during = await p.evaluate(() => ({ reads: window.__analysisReads, position: document.querySelector('audio').currentTime, paused: document.querySelector('audio').paused, y: window.scrollY, frames: window.__activeFrames.size, clocks: window.__activeVisualTimers.size, hearts: getComputedStyle(document.querySelector('.heartDrop')).animationPlayState, heart: getComputedStyle(document.querySelector('.heartDrop')).transform, orbit: getComputedStyle(document.querySelector('#musicToggle'), '::before').transform, orbitState: getComputedStyle(document.querySelector('#musicToggle'), '::before').animationPlayState, state: document.querySelector('#eq').dataset.state }));
+      assert(during.y > before.y, 'the wheel must actually scroll the document');
+      assert(during.reads > before.reads + 2, 'the real spectrum must continue sampling during scrolling');
       assert.equal(during.paused, false);
-      assert(during.position > frozen.position + .15, 'music must keep advancing while visuals freeze');
-      assert.deepEqual([during.frames, during.clocks, during.hearts], [0, 0, 'paused']);
-      await p.waitForFunction(() => !document.documentElement.classList.contains('is-scrolling'));
-      await p.waitForFunction(reads => window.__analysisReads > reads, frozen.reads);
-      assert.equal(await p.evaluate(() => window.__activeFrames.size), 1);
-      assert.equal(await p.locator('.heartDrop').first().evaluate(el => getComputedStyle(el).animationPlayState), 'running');
+      assert(during.position > before.position + .15, 'music must keep advancing while effects animate');
+      assert.deepEqual([during.frames, during.clocks, during.hearts, during.orbitState, during.state], [1, 1, 'running', 'running', 'active']);
+      assert.notEqual(during.heart, before.heart, 'falling hearts must visibly move while scrolling');
+      assert.notEqual(during.orbit, before.orbit, 'the play-button halo must keep rotating while scrolling');
       assert.equal(await p.evaluate(() => document.documentElement.scrollWidth > window.innerWidth), false);
       await p.locator('#musicToggle').click();
       assert.deepEqual(await p.evaluate(() => [window.__activeFrames.size, window.__activeVisualTimers.size]), [0, 0]);
