@@ -181,6 +181,10 @@ function instrument({ slowRAF = false } = {}) {
       assert.equal(await page.evaluate(() => window.__audioContexts.length), 1);
       assert.equal(await page.evaluate(() => window.__activeFrames.size), 1);
       assert.equal(await page.locator('#musicToggle').getAttribute('aria-label'), '暂停音乐');
+      assert.deepEqual(await page.evaluate(() => {
+        const metadata = navigator.mediaSession.metadata;
+        return [metadata.title, metadata.artist];
+      }), ['ENDLESS DREAM (エンドレス　ドリーマー)', 'shiki']);
       const before = await page.evaluate(() => ({ reads: window.__analysisReads, timers: { ...window.__visualTimerSchedules } }));
       await page.waitForTimeout(1100);
       const after = await page.evaluate(() => ({ reads: window.__analysisReads, timers: { ...window.__visualTimerSchedules } }));
@@ -314,7 +318,7 @@ function instrument({ slowRAF = false } = {}) {
       await page.route('**/*.mp3', async route => { await new Promise(resolve => setTimeout(resolve, 160)); await route.continue().catch(() => {}); });
       await page.evaluate(() => { for (let i = 0; i < 3; i++) document.querySelector('#nextTrack').click(); });
       await playing();
-      assert.equal(await page.locator('#trackName').textContent(), '第 4 首');
+      assert.equal(await page.locator('#trackName').textContent(), "AIR");
       assert((await page.locator('audio').evaluate(a => a.currentSrc)).endsWith('/4.mp3'));
       await page.evaluate(() => { const btn = document.querySelector('#musicToggle'); for (let i = 0; i < 9; i++) btn.click(); });
       await page.waitForTimeout(250);
@@ -338,19 +342,19 @@ function instrument({ slowRAF = false } = {}) {
       assert(await page.locator('#eq i').evaluateAll(bars => bars.every(el => !el.style.transform)));
       await buttonClick('#nextTrack');
       await playing();
-      assert.equal(await page.locator('#trackName').textContent(), '第 6 首');
+      assert.equal(await page.locator('#trackName').textContent(), "Dead of Night");
       await page.unroute('**/5.mp3');
     });
     await check('Track persistence, native ended event and 11-to-1 wraparound', async () => {
       await buttonClick('#musicToggle');
       await page.evaluate(() => localStorage.setItem('trackIndex', '11'));
       await page.reload({ waitUntil: 'networkidle' });
-      assert.equal(await page.locator('#trackName').textContent(), '第 11 首');
+      assert.equal(await page.locator('#trackName').textContent(), "水の戯れ（ラヴェル） (水之嬉戏（拉威尔作曲）)");
       assert.equal(await page.locator('audio').getAttribute('src'), null);
       await buttonClick('#musicToggle');
       await playing();
       await page.evaluate(() => { const a = document.querySelector('audio'); a.currentTime = a.duration - .1; });
-      await page.waitForFunction(() => document.querySelector('#trackName').textContent === '第 1 首');
+      await page.waitForFunction(() => document.querySelector('#trackName').textContent === "ENDLESS DREAM (エンドレス　ドリーマー)");
       await playing();
       assert.equal(await page.evaluate(() => localStorage.getItem('trackIndex')), '1');
       await buttonClick('#musicToggle');
@@ -385,7 +389,7 @@ function instrument({ slowRAF = false } = {}) {
         if (!fallbackDialog) {
           await p.locator('#trackName').press('Enter');
           await p.locator('.playlistTrack').nth(2).click();
-          await p.waitForFunction(() => document.querySelector('#trackName').textContent === '第 3 首' && !document.querySelector('audio').paused && document.querySelector('audio').currentTime > .1);
+          await p.waitForFunction(() => document.querySelector('#trackName').textContent === "1998" && !document.querySelector('audio').paused && document.querySelector('audio').currentTime > .1);
           assert.equal(await p.locator('#playlistDialog').isVisible(), false);
           assert.equal(await p.evaluate(() => document.activeElement.id), 'trackName');
           await p.locator('audio').evaluate(audio => { audio.currentTime = 30; });
@@ -413,12 +417,12 @@ function instrument({ slowRAF = false } = {}) {
       await seek.press('End');
       await p.waitForFunction(() => { const audio = document.querySelector('audio'); return audio.currentTime >= audio.duration - .2; });
       assert.equal(await p.locator('audio').evaluate(audio => audio.paused), true);
-      assert.equal(await p.locator('#trackName').textContent(), '第 1 首');
+      assert.equal(await p.locator('#trackName').textContent(), "ENDLESS DREAM (エンドレス　ドリーマー)");
       const bounds = await seek.boundingBox();
       await p.touchscreen.tap(bounds.x + bounds.width * .7, bounds.y + bounds.height / 2);
       await p.waitForFunction(() => { const audio = document.querySelector('audio'); return audio.currentTime / audio.duration > .6 && audio.currentTime / audio.duration < .8; });
       assert.equal(await p.locator('audio').evaluate(audio => audio.paused), true);
-      assert.equal(await p.locator('#trackName').textContent(), '第 1 首');
+      assert.equal(await p.locator('#trackName').textContent(), "ENDLESS DREAM (エンドレス　ドリーマー)");
       await touch.close();
     });
     await check('Volume, mute and decoration preferences persist without interrupting music or the spectrum', async () => {
@@ -481,7 +485,7 @@ function instrument({ slowRAF = false } = {}) {
       });
       await page.reload({ waitUntil: 'networkidle' });
       assert.equal(await page.locator('body').getAttribute('data-mood'), 'sweet');
-      assert.equal(await page.locator('#trackName').textContent(), '第 1 首');
+      assert.equal(await page.locator('#trackName').textContent(), "ENDLESS DREAM (エンドレス　ドリーマー)");
       assert.deepEqual(await page.locator('audio').evaluate(audio => [audio.volume, audio.muted]), [.9, false]);
       assert.equal(await page.locator('html').getAttribute('data-effects'), 'on');
       const blocked = await newContext();
@@ -570,18 +574,28 @@ function instrument({ slowRAF = false } = {}) {
       assert.equal(await p.locator('[data-mood-btn="sweet"]').evaluate(el => getComputedStyle(el).borderTopColor), 'rgba(255, 255, 255, 0.2)');
       await cold.close();
     });
-    await check('Mobile portrait/landscape retain all controls and untruncated track names', async () => {
+    await check('Mobile portrait/landscape retain controls, visible spectrum and complete playlist titles', async () => {
       const mobile = await newContext({ isMobile: true, hasTouch: true, reducedMotion: 'reduce' });
       const p = await mobile.newPage();
       for (const [width, height] of [[320, 568], [390, 844], [844, 390]]) {
         await p.setViewportSize({ width, height });
         await p.goto(`${origin}/index.html`, { waitUntil: 'networkidle' });
         assert.equal(await p.evaluate(() => document.documentElement.scrollWidth), width);
-        assert(await p.locator('#trackName').evaluate(el => el.clientWidth >= el.scrollWidth));
+        const title = await p.locator('#trackName').textContent();
+        assert((await p.locator('#trackName').getAttribute('aria-label')).includes(title));
+        assert((await p.locator('#trackName').getAttribute('title')).includes(title));
+        assert(await p.locator('#eq').evaluate(el => el.getBoundingClientRect().width >= 64));
+        const progress = await p.locator('.bar').boundingBox();
+        const playControl = await p.locator('#musicToggle').boundingBox();
+        assert(progress.x + progress.width <= playControl.x);
         for (const id of ['#musicToggle', '#nextTrack']) {
           const rect = await p.locator(id).boundingBox();
           assert(rect.x >= 0 && rect.y >= 0 && rect.x + rect.width <= width && rect.y + rect.height <= height);
         }
+        await p.locator('#trackName').click();
+        assert(await p.locator('.playlistTrack').evaluateAll(buttons => buttons.every(button => button.scrollWidth <= button.clientWidth && !/第\s*\d+\s*首/.test(button.textContent))));
+        assert(await p.locator('#playlistDialog').evaluate(dialog => dialog.scrollWidth <= dialog.clientWidth));
+        await p.keyboard.press('Escape');
         await p.locator('#funCBtn').click();
         assert.equal(await p.evaluate(() => document.documentElement.scrollWidth), width);
       }

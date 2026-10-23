@@ -249,7 +249,21 @@
     const eqEl = $("#eq");
     if (!bgMusic || !toggleBtn || !dock) return;
 
-    const TOTAL_TRACKS = 11;
+    // Read from the original ID3 tags offline: browsing the playlist needs no MP3 requests.
+    const TRACKS = [
+      {"title":"ENDLESS DREAM (エンドレス　ドリーマー)","artist":"shiki"},
+      {"title":"True Blue","artist":"dj TAKA"},
+      {"title":"1998","artist":"Binary Finary"},
+      {"title":"AIR","artist":"Link to you?"},
+      {"title":"C Sharp","artist":"The Quest"},
+      {"title":"Dead of Night","artist":"if found"},
+      {"title":"The Sound of Nature (Extended 2k20 Mix)","artist":"Talla 2XLC/Para X/Mario Lopez"},
+      {"title":"Sparkles","artist":"Tiësto"},
+      {"title":"Healing Dream","artist":"Sunday Club"},
+      {"title":"Destination Sunshine (Tiësto Power Mix)","artist":"Balearic Bill"},
+      {"title":"水の戯れ（ラヴェル） (水之嬉戏（拉威尔作曲）)","artist":"辻井伸行 (つじい のぶゆき)"},
+    ];
+    const TOTAL_TRACKS = TRACKS.length;
     const savedIndex = Number.parseInt(storage.getItem("trackIndex"), 10);
     let idx = savedIndex >= 1 && savedIndex <= TOTAL_TRACKS ? savedIndex : 1;
     let sourceIndex = 0;
@@ -903,7 +917,8 @@
 
     const updateMediaMetadata = () => {
       if (!mediaSession || typeof window.MediaMetadata !== "function") return;
-      try { mediaSession.metadata = new window.MediaMetadata({ title: `第 ${idx} 首`, artist: "DJCARL" }); } catch {}
+      const track = TRACKS[idx - 1];
+      try { mediaSession.metadata = new window.MediaMetadata({ title: track.title, artist: track.artist }); } catch {}
     };
 
     const play = async () => {
@@ -970,7 +985,12 @@
       scrubbing = false;
       buffering = false;
       storage.setItem("trackIndex", String(idx));
-      if (trackName) trackName.textContent = `第 ${idx} 首`;
+      if (trackName) {
+        const track = TRACKS[idx - 1];
+        trackName.textContent = track.title;
+        trackName.title = `${track.title} — ${track.artist} · 打开歌单与播放设置`;
+        trackName.setAttribute("aria-label", `${track.title}，打开歌单与播放设置`);
+      }
       syncPlaylistSelection();
       updateProgress();
       syncMediaPosition();
@@ -1041,7 +1061,9 @@
         const button = document.createElement("button");
         button.type = "button";
         button.className = "playlistTrack";
-        button.textContent = `第 ${number} 首`;
+        const track = TRACKS[number - 1];
+        button.textContent = track.title;
+        button.title = `${track.title} — ${track.artist}`;
         on(button, "click", () => {
           if (number !== idx) setTrack(number, true);
           else if (bgMusic.paused && !wantsPlayback) void play();
