@@ -35,7 +35,9 @@ test('Published assets, compression, caching and audio streaming', async t => {
     const imageFiles = manifest.files.filter(file => /\.(webp|png)$/.test(file));
     let bytes = 0;
     for (const file of imageFiles) bytes += (await fs.stat(path.join(outDir, file))).size;
-    assert(bytes < 30000, `Image budget exceeded: ${bytes}`);
+    // Allow the additional 3.6 KB original certificate QR without recompressing
+    // its small, high-contrast modules or changing its verification payload.
+    assert(bytes < 34000, `Image budget exceeded: ${bytes}`);
     // Social crawlers fetch the large card; browsers do not request OG images
     // during page rendering, so it has a separate size allowance.
     assert.equal(shareImages.length, 1);

@@ -331,6 +331,32 @@ body::before{
 }
 .sub{ color:var(--muted); font-size:14px; line-height:1.6; margin:0 0 14px; }
 
+/* A static award panel shares the existing palette and keeps its original QR
+   pixels intact. The white frame supplies a quiet zone for reliable scanning. */
+.awardCard{
+  display:grid; grid-template-columns:minmax(0,1fr) 124px; gap:16px;
+  align-items:center; margin-top:16px; padding:16px;
+  border:1px solid var(--stroke); border-radius:var(--r2);
+  background:rgba(7,7,25,.72);
+}
+.awardLabel{ margin:0 0 8px; font-size:12px; color:var(--muted); }
+.awardTitle{ margin:0; font-size:15px; font-weight:800; line-height:1.5; }
+.awardResult{ margin:7px 0 4px; font-size:13px; line-height:1.6; color:var(--muted); }
+.awardResult strong{ color:var(--a1); font-weight:800; }
+.awardMeta{ margin:0 0 12px; font-size:11px; line-height:1.6; color:var(--muted); }
+.awardCard .awardLink{ min-height:44px; padding:10px 12px; }
+.awardProof{ margin:0; text-align:center; }
+.certificateQR{ padding:12px; border-radius:12px; background:#fff; }
+.certificateQR img{
+  display:block; width:100px; height:100px;
+  image-rendering:pixelated;
+}
+.awardProof figcaption{ margin-top:8px; font-size:11px; line-height:1.5; color:var(--muted); }
+@media (max-width:360px){
+  .awardCard{ grid-template-columns:minmax(0,1fr); }
+  .awardProof{ justify-self:center; }
+}
+
 /* chips */
 .chips{ display:flex; flex-wrap:wrap; gap:10px; margin-top:10px; }
 .chip{
